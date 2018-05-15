@@ -1,0 +1,428 @@
+#' Regression Calibration (Algebraic Method)
+#'
+#' Implements the "algebraic" view of regression calibration as described in
+#' Rosner et al. (\emph{Stat. Med.} 1989). For the "conditional expectation"
+#' implementation, see \code{\link{rc_cond_exp}}.
+#'
+#' The disease model is a GLM:
+#'
+#' g[E(Y)] = beta_0 + beta_z Z + beta_c^T C + beta_b^T B
+#'
+#' And the measurement error model is a linear model:
+#'
+#' E(Z) = alpha_d D + alpha_c^T C
+#'
+#' The procedure is simple: fit the measurement error model using validation
+#' data, then calculate E(Z|D,C) for main study subjects and fit the disease
+#' model with E(Z|D,C) in place of the unobserved Z's.
+#'
+#'
+#' @param all_data Data frame with data for main study and validation study.
+#' @param main Data frame with data for the main study.
+#' @param internal Data frame with data for internal validation study.
+#' @param external Data frame with data for the external validation study.
+#' @param y_var Character string specifying name of Y variable.
+#' @param z_var Character string specifying name of Z variable.
+#' @param d_var Character string specifying name of D variable.
+#' @param c_vars Character vector specifying names of C variables.
+#' @param b_vars Character vector specifying names of variables in disease model
+#' but not the measurement error model.
+#' @param tdm_covariates Character vector specifying variables in disease model.
+#' The Z variable is automatically included whether you include it in
+#' \code{tdm_covariates} or not.
+#' @param tdm_family Character string specifying family of disease model (see
+#' \code{\link[stats]{glm}}).
+#' @param mem_covariates Character vector specifying variables in measurement
+#' error model.
+#' @param mem_family Character string specifying family of measurement error
+#' model (see \code{\link[stats]{glm}}).
+#' @param beta_0_formula If \code{1}, formula for disease model intercept is:
+#'
+#' beta_0.hat = betastar_0.hat - alpha_0.hat beta_Z.hat
+#'
+#' If \code{2}, formula is:
+#'
+#' beta_0.hat = betastar_0.hat - alpha_0.hat beta_Z.hat - 1/2 beta_Z.hat^2
+#' sigma_delta^2
+#'
+#' Formula 1 yields the same beta_0.hat as the "conditional expectation" view of
+#' regression calibration (see \code{\link{rc_cond_exp}}). When the disease
+#' model is logistic regression and the measurement error model is linear
+#' regression, formula 1 is appropriate if Y is rare and Z|(D,\strong{C}) is
+#' normal, and formula 2 is appropriate if beta_Z^2 sigma_delta^2 is small
+#' (Kuha, Stat. Med. 1994). If neither criteria is met, regression calibration
+#' may be unreliable.
+#'
+#' @param delta_var Logical value for whether to calculate a Delta method
+#' variance-covariance matrix.
+#' @param boot_var Logical value for whether to calculate a bootstrap
+#' variance-covariance matrix.
+#' @param boots Numeric value specifying number of bootstrap samples to use.
+#'
+#'
+#' @return
+#' If no variance estimates are requested, a named numeric vector of parameter
+#' estimates. If one or more variance estimates are requested, a list that also
+#' contains a variance-covariance matrix for each variance estimator.
+#'
+#'
+#' @references
+#' Gilbert, P. and Varadhan, R. (2016) "Accurate numeric derivatives." R package
+#' version 2016.8-1. https://CRAN.R-project.org/package=numDeriv.
+#'
+#' Kuha, J. (1994) "Corrections for exposure measurement error in logistic
+#' regression models with an application to nutritional data." \emph{Statistics
+#' in Medicine} \strong{13}(11): 1135-1148.
+#'
+#' Lyles, R.H. and Kupper, L.L. (2012) "Approximate and pseudo-likelihood
+#' analysis for logistic regression using external validation data to model log
+#' exposure." \emph{Journal of Agricultural, Biological, and Environmental
+#' Statistics} \strong{18}(1): 22-38.
+#'
+#' Rosner, B., Willett, W. and Spiegelman, D. (1989) "Correction of logistic
+#' regression relative risk estimates and confidence intervals for systematic
+#' within-person measurement error." \emph{Statistics in Medicine}
+#' \strong{8}(9): 1051-69.
+#'
+#' Spiegelman, D., Carroll, R.J. and Kipnis, V. (2001) "Efficient regression
+#' calibration for logistic regression in main study/internal validation study
+#' designs with an imperfect reference instrument." \emph{Statistics in
+#' Medicine} \strong{20}(1): 139-160.
+#'
+#' @export
+# # Data for testing
+# n.m <- 1000
+# n.e <- 100
+# n <- n.m + n.e
+#
+# alphas <- c(0, 0.25, 0.25)
+# sigsq_d <- 0.5
+#
+# betas <- c(0, 0.25, 0.1)
+# sigsq_e <- 0.5
+#
+# d <- rnorm(n)
+# c <- rnorm(n)
+# z <- alphas[1] + alphas[2] * d + alphas[3] * c + rnorm(n, sd = sqrt(sigsq_d))
+# y <- betas[1] + betas[2] * z + betas[3] * c + rnorm(n, sd = sqrt(sigsq_e))
+#
+# all_data <- data.frame(y = y, z = z, c = c, d = d)
+# all_data[1: n.e, 1] <- NA
+# all_data[(n.e + 1): n, 2] <- NA
+# main <- internal <- external <- NULL
+# y_var <- "y"
+# z_var <- "z"
+# d_var <- "d"
+# c_vars <- "c"
+# b_vars <- NULL
+# tdm_covariates <- mem_covariates <- NULL
+# tdm_family <- "gaussian"
+# mem_family <- "gaussian"
+# beta_0_formula <- 1
+# delta_var <- TRUE
+# boot_var <- TRUE
+# boots <- 100
+rc_algebraic <- function(all_data = NULL,
+                         main = NULL,
+                         internal = NULL,
+                         external = NULL,
+                         y_var,
+                         z_var,
+                         d_var = NULL,
+                         c_vars = NULL,
+                         b_vars = NULL,
+                         tdm_covariates = NULL, tdm_family = "gaussian",
+                         mem_covariates = NULL, mem_family = "gaussian",
+                         beta_0_formula = 1,
+                         delta_var = FALSE,
+                         boot_var = FALSE, boots = 100) {
+
+  # If beta_0_formula = 2, check that it is reasonable
+  if (beta_0_formula == 2) {
+    if (mem_family != "gaussian") {
+      stop("The beta_0_formula = 2 intercept is appropriate when the true
+           disease model is logistic regression, the outcome is rare, and
+           Z|(D, C) is normal. The mem_family you selected is not linear
+           regression, so V(Z|D, C) probably depends on D and C. Therefore you
+           must use beta_0_formula = 1.")
+    }
+    if (tdm_family != "binomial") {
+      warning("The beta_0_formula = 2 intercept is appropriate when the true
+              disease model is logistic regression, the outcome is rare, and
+              Z|(D, C) is normal. The tdm_family you selected is not logistic
+              regression, so, depending on your specific scenario, you may want
+              to re-run with beta_0_formula = 1.")
+    }
+  }
+
+  # # Ensure that input datasets are data frames, not matrices
+  # if (! is.null(all_data) & class(all_data) == "matrix") {
+  #   all_data <- as.data.frame(all_data)
+  # }
+  # if (! is.null(main) & class(main) == "matrix") {
+  #   main <- as.data.frame(main)
+  # }
+  # if (! is.null(internal) & class(internal) == "matrix") {
+  #   internal <- as.data.frame(internal)
+  # }
+  # if (! is.null(external) & class(external) == "matrix") {
+  #   external <- as.data.frame(external)
+  # }
+
+  # If tdm_covariates and mem_covariates specified, figure out d_var, c_vars,
+  # and b_vars
+  if (! is.null(tdm_covariates) & ! is.null(mem_covariates)) {
+    tdm_covariates <- setdiff(tdm_covariates, z_var)
+    d_var <- setdiff(mem_covariates, tdm_covariates)
+    c_vars <- intersect(tdm_covariates, mem_covariates)
+    b_vars <- setdiff(tdm_covariates, mem_covariates)
+  }
+
+  # Get full list of covariates
+  covariates <- c(z_var, d_var, c_vars, b_vars)
+
+  # Get dimension of C and B
+  kc <- length(c_vars)
+  kb <- length(b_vars)
+
+  # If all_data not specified, create it from main, internal, and external
+  if (is.null(all_data)) {
+
+    if (! is.null(main)) {
+      if (! z_var %in% names(main)) {
+        main[, z_var] <- NA
+      }
+      main <- main[, c(y_var, covariates)]
+      all_data <- main
+    }
+
+    if (! is.null(internal)) {
+      internal <- internal[, c(y_var, covariates)]
+      all_data <- rbind(all_data, internal)
+    }
+
+    if (! is.null(external)) {
+      if (! y_var %in% names(external)) {
+        external[, y_var] <- NA
+      }
+      external <- external[, c(y_var, covariates)]
+      all_data <- rbind(all_data, external)
+    }
+
+  }
+
+  # Fit naive TDM to get betastar.hat vector
+  tdm.naive.formula <- paste(paste(y_var, " ~ ", sep = ""),
+                             paste(c(d_var, c_vars, b_vars), collapse = " + "),
+                             sep = "")
+  tdm.naive.fit <- glm(tdm.naive.formula, data = all_data, family = tdm_family)
+  betastar.hat <- tdm.naive.fit$coef
+
+  # Fit MEM using all available data to get alpha.hat vector
+  mem.formula <- paste(paste(z_var, " ~ ", sep = ""),
+                       paste(c(d_var, c_vars), collapse = " + "),
+                       sep = "")
+  if (mem_family == "gaussian") {
+    mem.fit <- lm(mem.formula, data = all_data)
+    sigsq_delta.hat <- rev(anova(mem.fit)$"Mean Sq")[1]
+  } else {
+    mem.fit <- glm(mem.formula, data = all_data, family = mem_family)
+  }
+  alpha.hat <- mem.fit$coef
+
+  # Create labels for parameter estimates
+  beta.labels <- c("beta_0", paste(rep("beta_", 1 + kc + kb),
+                                   c(z_var, c_vars, b_vars),
+                                   sep = ""))
+  alpha.labels <- c("alpha_0", paste(rep("alpha_", 1 + kc),
+                                     c(d_var, c_vars),
+                                     sep = ""))
+  theta.labels <- c(beta.labels, alpha.labels)
+
+  # Obtain point estimates for theta and Delta method variance estimate,
+  # if requested.
+
+  if (mem_family == "gaussian") {
+
+    # If MEM is linear regression, include sigsq_delta in theta
+    theta.labels <- c(theta.labels, "sigsq_delta")
+
+    # theta = (beta^T, alpha^T, sigsq_delta)^T =
+    # f(betastar, alpha, sigsq_delta)
+    f <- function(x) {
+
+      # Extract betastar, alpha, and sigsq_delta
+      f.betastar <- x[1: length(betastar.hat)]
+      f.alpha <- x[(length(betastar.hat) + 1): (length(x) - 1)]
+      f.sigsq_delta <- x[length(x)]
+
+      # Calculate f.beta depending on value of beta_0_formula input
+      if (beta_0_formula == 1) {
+
+        # beta_0 = betastar_0 - alpha_0 beta_Z
+
+        # Construct A matrix
+        f.A <- cbind(c(1, rep(0, 1 + kc + kb)),
+                     c(f.alpha, rep(0, kb)),
+                     rbind(matrix(0, nrow = 2, ncol = kc + kb), diag(kc + kb)))
+
+        # Calculate beta = A^(-1) betastar
+        f.beta <- solve(f.A) %*% f.betastar
+
+      } else if (beta_0_formula == 2) {
+
+        # beta_0 = betastar_0 - alpha_0 beta_Z - 1/2 beta_Z^2 sigsq_delta
+
+        # Construct A matrix
+        f.A <- cbind(c(f.alpha[-1], rep(0, kb)),
+                     rbind(matrix(0, nrow = 1, ncol = kc + kb), diag(kc + kb)))
+
+        # Calculate (beta_Z, beta_C^T, beta_B^T) = A^(-1) betastar[-1]
+        f.beta.nointercept <- solve(f.A) %*% f.betastar[-1]
+
+        # Calculate beta_0
+        f.beta_Z <- f.beta.nointercept[1]
+        f.beta_0 <- f.betastar[1] - f.alpha[1] * f.beta_Z -
+          1/2 * f.beta_Z^2 * f.sigsq_delta
+
+        # Construct beta = (beta_0, beta_Z, beta_C^T, beta_B^T)
+        f.beta <- c(f.beta_0, f.beta_Z, f.beta.nointercept)
+
+      }
+
+      # Return theta = (beta^T, alpha^T, sigsq_delta)^T
+      f.theta <- c(f.beta, f.alpha, f.sigsq_delta)
+      return(f.theta)
+
+    }
+
+    # Obtain point estimate for theta, and add to ret.list
+    theta.hat <- f(c(betastar.hat, alpha.hat, sigsq_delta.hat))
+    names(theta.hat) <- theta.labels
+    ret.list <- list(theta.hat = theta.hat)
+
+    # Calculate Delta-method variance estimate, if requested
+    if (delta_var) {
+
+      # Estimate f'(betastar.hat, alpha.hat, sigsq_delta)
+      fprime <- jacobian(func = f,
+                         x = c(betastar.hat, alpha.hat, sigsq_delta.hat))
+
+      # Construct V.hat(betastar.hat, alpha.hat, sigsq_delta.hat)
+      Sigma <- bdiag(vcov(tdm.naive.fit), vcov(mem.fit),
+                     2 * sigsq_delta.hat^2 / mem.fit$df.residual)
+
+      # Calculate f'(.) V(.) f'(.)^T
+      delta.variance <- as.matrix(fprime %*% Sigma %*% t(fprime))
+
+      # Attach labels and add to ret.list
+      colnames(delta.variance) <- rownames(delta.variance) <- theta.labels
+      ret.list$delta.var <- delta.variance
+
+    }
+
+  } else {
+
+    # theta = (beta^T, alpha^T)^T = f(betastar, alpha)
+    f <- function(x) {
+
+      # Extract betastar and alpha
+      f.betastar <- x[1: length(betastar.hat)]
+      f.alpha <- x[(length(betastar.hat) + 1): length(x)]
+
+      # Construct A matrix
+      f.A <- cbind(c(1, rep(0, 1 + kc + kb)),
+                   c(f.alpha, rep(0, kb)),
+                   rbind(matrix(0, nrow = 2, ncol = kc + kb), diag(kc + kb)))
+
+      # Calculate beta = A^(-1) betastar
+      f.beta <- solve(f.A) %*% f.betastar
+
+      # Return theta = (beta^T, alpha^T)^T
+      f.theta <- c(f.beta, f.alpha)
+      return(f.theta)
+
+    }
+
+    # Obtain point estimate for theta, and add to ret.list
+    theta.hat <- f(c(betastar.hat, alpha.hat))
+    names(theta.hat) <- theta.labels
+    ret.list <- list(theta.hat = theta.hat)
+
+    # Calculate Delta-method variance estimate, if requested
+    if (delta_var) {
+
+      # Estimate f'(betastar.hat, alpha.hat)
+      fprime <- jacobian(func = f, x = c(betastar.hat, alpha.hat))
+
+      # Construct V.hat(betastar.hat, alpha.hat)
+      Sigma <- bdiag(vcov(tdm.naive.fit), vcov(mem.fit))
+
+      # Calculate f'(.) V(.) f'(.)^T
+      delta.variance <- as.matrix(fprime %*% Sigma %*% t(fprime))
+
+      # Attach labels and add to ret.list
+      colnames(delta.variance) <- rownames(delta.variance) <- theta.labels
+      ret.list$delta.var <- delta.variance
+
+    }
+
+  }
+
+  # Get bootstrap variance estimate if requested
+  if (boot_var) {
+
+    # Various data types
+    locs.main <-
+      which(is.na(all_data[, z_var]) &
+              complete.cases(all_data[, c(y_var, d_var, c_vars, b_vars)]))
+    locs.internal <-
+      which(complete.cases(all_data[, c(y_var, z_var, d_var, c_vars, b_vars)]))
+    locs.external <-
+      which(is.na(all_data[, y_var]) &
+              complete.cases(all_data[, c(z_var, d_var, c_vars)]))
+    n.main <- length(locs.main)
+    n.internal <- length(locs.internal)
+    n.external <- length(locs.external)
+
+    # Initialize matrix for theta estimates
+    theta.hat.boots <- matrix(NA, ncol = length(theta.hat), nrow = boots)
+
+    # Bootstrap
+    for (ii in 1: boots) {
+
+      locs.main.sampled <- sample(locs.main, replace = TRUE)
+      locs.internal.sampled <- sample(locs.internal, replace = TRUE)
+      locs.external.sampled <- sample(locs.external, replace = TRUE)
+
+      all_data.boot <- all_data[c(locs.main.sampled,
+                                  locs.internal.sampled,
+                                  locs.external.sampled), ]
+
+      theta.hat.boots[ii, ] <- rc_algebraic(all_data = all_data.boot,
+                                            y_var = y_var,
+                                            z_var = z_var,
+                                            d_var = d_var,
+                                            c_vars = c_vars,
+                                            b_vars = b_vars,
+                                            tdm_family = tdm_family,
+                                            mem_family = mem_family)
+
+    }
+
+    # Calculate bootstrap variance estimate and add it to ret.list
+    boot.variance <- var(theta.hat.boots)
+    rownames(boot.variance) <- colnames(boot.variance) <- theta.labels
+    ret.list$boot.var <- boot.variance
+
+  }
+
+  # Convert ret.list to vector if length is 1
+  if (length(ret.list) == 1) {
+    ret.list <- ret.list[[1]]
+  }
+
+  # Return object
+  return(ret.list)
+
+}
