@@ -1,42 +1,32 @@
 #' Regression Calibration (Algebraic Method)
 #'
-#' Implements the "algebraic" view of regression calibration as described in
+#' Implements the "algebraic" version of regression calibration as described in
 #' Rosner et al. (\emph{Stat. Med.} 1989). For the "conditional expectation"
-#' implementation, see \code{\link{rc_cond_exp}}.
+#' version, see \code{\link{rc_cond_exp}}.
 #'
-#' The disease model is a GLM:
+#' The true disease model is a GLM:
 #'
 #' g[E(Y)] = beta_0 + beta_z Z + beta_c^T C + beta_b^T B
 #'
-#' And the measurement error model is a linear model:
+#' The measurement error model is:
 #'
 #' E(Z) = alpha_d D + alpha_c^T C
 #'
-#' The procedure is simple: fit the measurement error model using validation
-#' data, then calculate E(Z|D,C) for main study subjects and fit the disease
-#' model with E(Z|D,C) in place of the unobserved Z's.
+#' And the naive disease model is:
+#'
+#' g[E(Y)] = beta*_0 + beta*_Z D + \strong{beta*_C}^T \strong{C} +
+#' \strong{beta*_B}^T \strong{B}
+#'
+#' The procedure involves fitting the naive disease model using main study
+#' data, fitting the measurement error model using validation data, and
+#' solving a system of equations to get the regression calibration estimates.
 #'
 #'
-#' @param all_data Data frame with data for main study and validation study.
-#' @param main Data frame with data for the main study.
-#' @param internal Data frame with data for internal validation study.
-#' @param external Data frame with data for the external validation study.
-#' @param y_var Character string specifying name of Y variable.
-#' @param z_var Character string specifying name of Z variable.
+#' @inheritParams rc_cond_exp
+#'
 #' @param d_var Character string specifying name of D variable.
-#' @param c_vars Character vector specifying names of C variables.
-#' @param b_vars Character vector specifying names of variables in disease model
-#' but not the measurement error model.
-#' @param tdm_covariates Character vector specifying variables in disease model.
-#' The Z variable is automatically included whether you include it in
-#' \code{tdm_covariates} or not.
-#' @param tdm_family Character string specifying family of disease model (see
-#' \code{\link[stats]{glm}}).
-#' @param mem_covariates Character vector specifying variables in measurement
-#' error model.
-#' @param mem_family Character string specifying family of measurement error
-#' model (see \code{\link[stats]{glm}}).
-#' @param beta_0_formula If \code{1}, formula for disease model intercept is:
+#' @param beta_0_formula If \code{1}, formula for true disease model intercept
+#' is:
 #'
 #' beta_0.hat = betastar_0.hat - alpha_0.hat beta_Z.hat
 #'
@@ -55,9 +45,6 @@
 #'
 #' @param delta_var Logical value for whether to calculate a Delta method
 #' variance-covariance matrix.
-#' @param boot_var Logical value for whether to calculate a bootstrap
-#' variance-covariance matrix.
-#' @param boots Numeric value specifying number of bootstrap samples to use.
 #'
 #'
 #' @return
@@ -67,9 +54,6 @@
 #'
 #'
 #' @references
-#' Gilbert, P. and Varadhan, R. (2016) "Accurate numeric derivatives." R package
-#' version 2016.8-1. https://CRAN.R-project.org/package=numDeriv.
-#'
 #' Kuha, J. (1994) "Corrections for exposure measurement error in logistic
 #' regression models with an application to nutritional data." \emph{Statistics
 #' in Medicine} \strong{13}(11): 1135-1148.
@@ -154,20 +138,6 @@ rc_algebraic <- function(all_data = NULL,
               to re-run with beta_0_formula = 1.")
     }
   }
-
-  # # Ensure that input datasets are data frames, not matrices
-  # if (! is.null(all_data) & class(all_data) == "matrix") {
-  #   all_data <- as.data.frame(all_data)
-  # }
-  # if (! is.null(main) & class(main) == "matrix") {
-  #   main <- as.data.frame(main)
-  # }
-  # if (! is.null(internal) & class(internal) == "matrix") {
-  #   internal <- as.data.frame(internal)
-  # }
-  # if (! is.null(external) & class(external) == "matrix") {
-  #   external <- as.data.frame(external)
-  # }
 
   # If tdm_covariates and mem_covariates specified, figure out d_var, c_vars,
   # and b_vars

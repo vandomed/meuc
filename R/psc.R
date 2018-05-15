@@ -1,7 +1,7 @@
-#' Propensity Score Calibration for Linear Regression
+#' Propensity Score Calibration
 #'
 #' Implements propensity score calibration as described by Sturmer et al.
-#' (\strong{Am. J. Epidemiol.} 2005). Requires validation data.
+#' (\emph{Am. J. Epidemiol.} 2005). Requires validation data.
 #'
 #' The disease model is a GLM:
 #'
@@ -16,6 +16,17 @@
 #' E(G|G*). Finally, in the main study, G*'s are calculated, then E(G|G*),
 #' and the disease model is fit for Y vs. (X, E(G|G*)).
 #'
+#' @inheritParams rc_cond_exp
+#'
+#' @param x_var Character string specifying name of X variable.
+#' @param gs_vars Character vector specifying names of variables for gold
+#' standard propensity score.
+#' @param ep_vars Character vector specifying names of variables for error-prone
+#' propensity score.
+#' @param surrogacy Logical value for whether to assume surrogacy, which means
+#' that the error-prone propensity score is not informative of Y given X and the
+#' gold standard propensity score. If validation data is external, have to
+#' assume surrogacy.
 #'
 #'
 #' @references
@@ -25,7 +36,39 @@
 #' 279-289.
 #'
 #'
-# Basic propensity score calibration function
+#' @export
+# # Data for testing
+# n.m <- 1000
+# n.e <- 100
+# n <- n.m + n.e
+#
+# alphas <- c(0, 0.25, 0.25)
+# sigsq_d <- 0.5
+#
+# betas <- c(0, 0.25, 0.1)
+# sigsq_e <- 0.5
+#
+# d <- rnorm(n)
+# c <- rnorm(n)
+# z <- alphas[1] + alphas[2] * d + alphas[3] * c + rnorm(n, sd = sqrt(sigsq_d))
+# y <- betas[1] + betas[2] * z + betas[3] * c + rnorm(n, sd = sqrt(sigsq_e))
+#
+# all_data <- data.frame(y = y, z = z, c = c, d = d)
+# all_data[1: n.e, 1] <- NA
+# all_data[(n.e + 1): n, 2] <- NA
+# main <- internal <- external <- NULL
+# y_var <- "y"
+# z_var <- "z"
+# d_var <- "d"
+# c_vars <- "c"
+# b_vars <- NULL
+# tdm_covariates <- mem_covariates <- NULL
+# tdm_family <- "gaussian"
+# mem_family <- "gaussian"
+# beta_0_formula <- 1
+# delta_var <- TRUE
+# boot_var <- TRUE
+# boots <- 100
 psc <- function(all_data = NULL,
                 main = NULL,
                 internal = NULL,
@@ -39,35 +82,9 @@ psc <- function(all_data = NULL,
                 weighted = FALSE,
                 ep_refit = FALSE) {
 
-  # Try using data frames for everything
-
-  # Regression models:
-
-  # TDM: g[E(Y)] = beta_0 + beta_X X + beta_P e(X_GS)
-  # MEM: E[e(X_GS)] = lambda_0 + lambda_X X + lambda_p e(X_EP)
-
-  # Propensity score models:
-
-  # e(GS) = P(X = 1 | X_GS) = (1 + exp(-gamma_0 - gamma_X^T X_GS))^(-1)
-  # e(EP) = P(X = 1 | X_EP) = (1 + exp(-gamma_0* - gamma_X*^T X_EP))^(-1)
-
   # Using conditional expectation view of RC rather than algebraic view, because
   # Delta-method variance esimator wouldn't be valid anyway, and conditional is
   # more flexible.
-
-  # Ensure that input datasets are data frames, not matrices
-  if (! is.null(all_data) & class(all_data) == "matrix") {
-    all_data <- as.data.frame(all_data)
-  }
-  if (! is.null(main) & class(main) == "matrix") {
-    main <- as.data.frame(main)
-  }
-  if (! is.null(internal) & class(internal) == "matrix") {
-    internal <- as.data.frame(internal)
-  }
-  if (! is.null(external) & class(external) == "matrix") {
-    external <- as.data.frame(external)
-  }
 
   # Get full list of covariates
   covariates <- unique(c(x_var, gs_vars, ep_vars))
