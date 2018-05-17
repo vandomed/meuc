@@ -64,7 +64,8 @@ version, see \code{\link{rc_algebraic}}.
 \details{
 The true disease model is a GLM:
 
-g[E(Y)] = beta_0 + beta_z Z + beta_c^T C + beta_b^T B
+g[E(Y)] = beta_0 + beta_z Z + \strong{beta_c}^T \strong{C} +
+\strong{beta_b}^T \strong{B}
 
 The measurement error model is:
 

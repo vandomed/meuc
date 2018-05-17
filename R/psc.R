@@ -3,7 +3,7 @@
 #' Implements propensity score calibration as described by Sturmer et al.
 #' (\emph{Am. J. Epidemiol.} 2005). Requires validation data.
 #'
-#' The disease model is a GLM:
+#' The true disease model is a GLM:
 #'
 #' g[E(Y)] = beta_0 + beta_x X + beta_g G
 #'

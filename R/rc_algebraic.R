@@ -6,11 +6,12 @@
 #'
 #' The true disease model is a GLM:
 #'
-#' g[E(Y)] = beta_0 + beta_z Z + beta_c^T C + beta_b^T B
+#' g[E(Y)] = beta_0 + beta_z Z + \strong{beta_c}^T \strong{C} +
+#' \strong{beta_b}^T \strong{B}
 #'
 #' The measurement error model is:
 #'
-#' E(Z) = alpha_d D + alpha_c^T C
+#' E(Z) = alpha_d D + \strong{alpha_c}^T \strong{C}
 #'
 #' And the naive disease model is:
 #'
@@ -53,23 +54,8 @@
 #' contains a variance-covariance matrix for each variance estimator.
 #'
 #'
-#' @references
-#' Kuha, J. (1994) "Corrections for exposure measurement error in logistic
-#' regression models with an application to nutritional data." \emph{Stat. Med.}
-#' \strong{13}(11): 1135-1148.
+#' @inherit rc_cond_exp references
 #'
-#' Lyles, R.H. and Kupper, L.L. (2012) "Approximate and pseudo-likelihood
-#' analysis for logistic regression using external validation data to model log
-#' exposure." \emph{J. Agric. Biol. Environ. Stat.} \strong{18}(1): 22-38.
-#'
-#' Rosner, B., Willett, W. and Spiegelman, D. (1989) "Correction of logistic
-#' regression relative risk estimates and confidence intervals for systematic
-#' within-person measurement error." \emph{Stat. Med.} \strong{8}(9): 1051-69.
-#'
-#' Spiegelman, D., Carroll, R.J. and Kipnis, V. (2001) "Efficient regression
-#' calibration for logistic regression in main study/internal validation study
-#' designs with an imperfect reference instrument." \emph{Stat. Med.}
-#' \strong{20}(1): 139-160.
 #'
 #' @export
 #'

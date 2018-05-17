@@ -1,14 +1,14 @@
-#' Maximum Likelihood with Linear Regression Disease Model and Linear Regression
-#' Measurement Error Model
+#' Maximum Likelihood with Logistic Regression Disease Model and Linear
+#' Regression Measurement Error Model
 #'
 #' Calculates maximum likelihood estimates for measurement error/unmeasured
-#' confounding scenario where true disease model and measurement error model
-#' are linear regressions. Requires validation data.
+#' confounding scenario where true disease model is logistic regression and
+#' measurement error model is linear regression. Requires validation data.
 #'
 #' The true disease model is:
 #'
-#' Y = beta_0 + beta_z Z + \strong{beta_c}^T \strong{C} + \strong{beta_b}^T
-#' \strong{B} + epsilon, epsilon ~ N(0, sigsq_epsilon)
+#' logit[P(Y = 1)] = beta_0 + beta_z Z + \strong{beta_c}^T \strong{C} +
+#' \strong{beta_b}^T \strong{B}
 #'
 #' The measurement error model is:
 #'
@@ -20,21 +20,20 @@
 #' (Y, Z, \strong{D}, \strong{C}, \strong{B}) and/or external validation data
 #' with (Z, \strong{D}, \strong{C}).
 #'
-#' @inheritParams rc_cond_exp
-#' @param estimate_var Logical value for whether to return variance-covariance
-#' matrix for parameter estimates.
-#' @param ... Additional arguments to pass to \code{\link[stats]{nlminb}}.
+#'
+#' @inheritParams ml_linreg_linreg
+#' @param approx_integral Logical value for whether to use the probit
+#' approximation for the logistic-normal integral, to avoid numerically
+#' integrating \code{Z}'s out of the likelihood function.
+#' @param integrate_tol Numeric value specifying \code{tol} input to
+#' \code{\link[cubature]{hcubature}} for numerical integration.
+#' @param integrate_tol_hessian Same as \code{integrate_tol}, but for use when
+#' estimating the Hessian matrix only. Sometimes using a smaller value than for
+#' likelihood maximization helps prevent cases where the inverse Hessian is not
+#' positive definite.
 #'
 #'
-#' @return
-#' List containing:
-#' \enumerate{
-#' \item Numeric vector of parameter estimates.
-#' \item Variance-covariance matrix (if \code{estimate_var = TRUE}).
-#' \item Returned \code{\link[stats]{nlminb}} object from maximizing the
-#' log-likelihood function.
-#' \item Akaike information criterion (AIC).
-#' }
+#' @inherit ml_linreg_linreg return
 #'
 #'
 #' @export
@@ -49,13 +48,14 @@
 # sigsq_d <- 0.5
 #
 # betas <- c(0, 0.25, 0.1, 0.05)
-# sigsq_e <- 0.5
 #
 # d <- rnorm(n)
 # c <- rnorm(n)
 # b <- rnorm(n)
 # z <- alphas[1] + alphas[2] * d + alphas[3] * c + rnorm(n, sd = sqrt(sigsq_d))
-# y <- betas[1] + betas[2] * z + betas[3] * c + betas[4] * b + rnorm(n, sd = sqrt(sigsq_e))
+# y <- rbinom(n, size = 1,
+#             prob = (1 + exp(-betas[1] - betas[2] * z - betas[3] * c -
+#                               betas[4] * b))^(-1))
 #
 # all_data <- data.frame(y = y, z = z, c = c, b = b, d = d)
 # all_data[1: n.e, 1] <- NA
@@ -69,14 +69,14 @@
 # tdm_covariates <- mem_covariates <- NULL
 # estimate_var <- TRUE
 #
-# fit <- ml_linreg_linreg(all_data = all_data,
+# fit <- ml_logreg_linreg(all_data = all_data,
 #                         y_var = "y",
 #                         z_var = "z",
 #                         d_vars = "d",
 #                         c_vars = "c",
 #                         b_vars = "b")
 
-ml_linreg_linreg <- function(all_data = NULL,
+ml_logreg_linreg <- function(all_data = NULL,
                              main = NULL,
                              internal = NULL,
                              external = NULL,
@@ -87,6 +87,9 @@ ml_linreg_linreg <- function(all_data = NULL,
                              b_vars = NULL,
                              tdm_covariates = NULL,
                              mem_covariates = NULL,
+                             approx_integral = TRUE,
+                             integrate_tol = 1e-8,
+                             integrate_tol_hessian = integrate_tol,
                              estimate_var = TRUE,
                              ...) {
 
@@ -151,10 +154,44 @@ ml_linreg_linreg <- function(all_data = NULL,
   loc.alphas <- (n.betas + 1): (n.betas + n.alphas)
   alpha.labels <- paste("alpha", c("0", d_vars, c_vars), sep = "_")
 
-  loc.sigsq_e <- n.betas + n.alphas + 1
-  loc.sigsq_d <- n.betas + n.alphas + 2
+  loc.sigsq_d <- n.betas + n.alphas + 1
 
-  theta.labels <- c(beta.labels, alpha.labels, "sigsq_e", "sigsq_d")
+  theta.labels <- c(beta.labels, alpha.labels, "sigsq_d")
+
+  # Likelihood function for full ML
+  if (some.m && ! approx_integral) {
+    lf.full <- function(y,
+                        z,
+                        mu_z.dc,
+                        sigsq_z.dc,
+                        beta_z,
+                        cb.term) {
+
+      z <- matrix(z, nrow = 1)
+      dens <- apply(z, 2, function(z) {
+
+        # Transformation
+        s <- z / (1 - z^2)
+
+        # P(Y|Z,C,B)
+        p_y.zcb <- (1 + exp(-cb.term - beta_z * s))^(-1)
+
+        # f(Y,X,Xtilde|C) = f(Y|X,C) f(Xtilde|X) f(X|C)
+        dbinom(y,
+               size = 1,
+               prob = p_y.zcb) *
+          dnorm(s,
+                mean = mu_z.dc,
+                sd = sqrt(sigsq_z.dc))
+
+      })
+
+      # Back-transformation
+      out <- matrix(dens * (1 + z^2) / (1 - z^2)^2, ncol = ncol(z))
+      return(out)
+
+    }
+  }
 
   # Log-likelihood function
   llf <- function(f.theta, estimating.hessian = FALSE) {
@@ -166,19 +203,60 @@ ml_linreg_linreg <- function(all_data = NULL,
 
     f.alphas <- matrix(f.theta[loc.alphas], ncol = 1)
 
-    f.sigsq_e <- f.theta[loc.sigsq_e]
     f.sigsq_d <- f.theta[loc.sigsq_d]
 
     if (some.m) {
 
       # Likelihood for main study subjects:
-      # L = f(Y|D,C,B)
-      ll.m <- sum(
-        dnorm(y.m, log = TRUE,
-              mean = onecb.m %*% f.beta_0cb + f.beta_z * onedc.m %*% f.alphas,
-              sd = sqrt(f.sigsq_e + f.beta_z^2 * f.sigsq_d))
-      )
+      # L = \int_z f(Y|Z,C,B) f(Z|D,C) dZ
 
+      if (approx_integral) {
+
+        # Probit approximation for logistic-normal integral
+
+        # E(Z|D,C)
+        mu_z.dc <- onedc.m %*% f.alphas
+
+        t <- (onecb.m %*% f.betas[-2] + f.beta_z * mu_z.dc) /
+          sqrt(1 + f.sigsq_d * f.beta_z^2 / 1.7^2)
+        p <- exp(t) / (1 + exp(t))
+        ll.m <- sum(dbinom(y.m, log = TRUE, size = 1, prob = p))
+
+      } else {
+
+        # Get integration tolerance
+        int.tol <- ifelse(estimating.hessian, integrate_tol_hessian, integrate_tol)
+
+        # E(Z|D,C)
+        mu_z.dc <- onedc.m %*% f.alphas
+        cb.terms <- onecb.m %*% f.betas[-2]
+
+        int.vals <- c()
+        for (ii in 1: n.m) {
+
+          # Perform integration
+          int.ii <- cubature::hcubature(f = lf.full,
+                                        tol = integrate_tol,
+                                        lowerLimit = -1,
+                                        upperLimit = 1,
+                                        vectorInterface = TRUE,
+                                        y = y.m[ii],
+                                        mu_z.dc = mu_z.dc[ii],
+                                        sigsq_z.dc = f.sigsq_d,
+                                        beta_z = f.beta_z,
+                                        cb.term = cb.terms[ii])
+          int.vals[ii] <- int.ii$integral
+          if (int.ii$integral == 0) {
+            print(paste("Integral is 0 for ii = ", ii, sep = ""))
+            print(f.theta)
+            break
+          }
+
+        }
+
+        ll.m <- sum(log(int.vals))
+
+      }
 
     } else {
       ll.m <- 0
@@ -189,14 +267,12 @@ ml_linreg_linreg <- function(all_data = NULL,
       # Likelihood for internal validation subjects:
       # L = f(Y|Z,C,B) f(Z|D,C)
       ll.i <- sum(
-        dnorm(y.i, log = TRUE,
-              mean = onezcb.i %*% f.betas,
-              sd = sqrt(f.sigsq_e)) +
+        dbinom(y.i, log = TRUE, size = 1,
+               prob = (1 + exp(-onezcb.i %*% f.betas))^(-1)) +
           dnorm(z.i, log = TRUE,
                 mean = onedc.i %*% f.alphas,
                 sd = sqrt(f.sigsq_d))
       )
-
 
     } else {
       ll.i <- 0
@@ -212,7 +288,6 @@ ml_linreg_linreg <- function(all_data = NULL,
               sd = sqrt(f.sigsq_d))
       )
 
-
     } else {
       ll.e <- 0
     }
@@ -227,10 +302,10 @@ ml_linreg_linreg <- function(all_data = NULL,
   # lower values if not specified by user
   extra.args <- list(...)
   if (is.null(extra.args$start)) {
-    extra.args$start <- c(rep(0.01, n.betas + n.alphas), 1, 1)
+    extra.args$start <- c(rep(0.01, n.betas + n.alphas), 1)
   }
   if (is.null(extra.args$lower)) {
-      extra.args$lower <- c(rep(-Inf, n.betas + n.alphas), rep(1e-4, 2))
+    extra.args$lower <- c(rep(-Inf, n.betas + n.alphas), 1e-4)
   }
   if (is.null(extra.args$control$rel.tol)) {
     extra.args$control$rel.tol <- 1e-6
