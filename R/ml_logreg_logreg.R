@@ -1,14 +1,14 @@
-#' Maximum Likelihood with Linear Regression Disease Model and Logistic
+#' Maximum Likelihood with Logistic Regression Disease Model and Logistic
 #' Regression Measurement Error Model
 #'
 #' Calculates maximum likelihood estimates for measurement error/unmeasured
-#' confounding scenario where true disease model is linear regression and
-#' measurement error model is logistic regression.
+#' confounding scenario where true disease model and measurement error model are
+#' both logistic regression.
 #'
 #' The true disease model is:
 #'
-#' Y = beta_0 + beta_z Z + \strong{beta_c}^T \strong{C} + \strong{beta_b}^T
-#' \strong{B} + epsilon, epsilon ~ N(0, sigsq_epsilon)
+#' logit[P(Y = 1)] = beta_0 + beta_z Z + \strong{beta_c}^T \strong{C} +
+#' \strong{beta_b}^T \strong{B}
 #'
 #' The measurement error model is:
 #'
@@ -22,7 +22,7 @@
 #' without validation data, but estimation may be impractical in that scenario.
 #'
 #'
-#' @inheritParams ml_linreg_linreg
+#' @inheritParams ml_logreg_linreg
 #'
 #'
 #' @inherit ml_linreg_linreg return
@@ -37,16 +37,16 @@
 # n <- n.m + n.e + n.i
 #
 # alphas <- c(0, 0.25, 0.25)
-#
 # betas <- c(0, 0.25, 0.1, 0.05)
-# sigsq_e <- 0.5
 #
 # d <- rnorm(n)
 # c <- rnorm(n)
 # b <- rnorm(n)
 # z <- rbinom(n, size = 1,
 #             prob = (1 + exp(-alphas[1] - alphas[2] * d - alphas[3] * c))^(-1))
-# y <- betas[1] + betas[2] * z + betas[3] * c + betas[4] * b + rnorm(n, sd = sqrt(sigsq_e))
+# y <- rbinom(n, size = 1,
+#             prob = (1 + exp(-betas[1] - betas[2] * z - betas[3] * c -
+#                               betas[4] * b))^(-1))
 #
 # all_data <- data.frame(y = y, z = z, c = c, b = b, d = d)
 # all_data[1: n.e, 1] <- NA
@@ -60,14 +60,14 @@
 # tdm_covariates <- mem_covariates <- NULL
 # estimate_var <- TRUE
 #
-# fit <- ml_linreg_logreg(all_data = all_data,
+# fit <- ml_logreg_logreg(all_data = all_data,
 #                         y_var = "y",
 #                         z_var = "z",
 #                         d_vars = "d",
 #                         c_vars = "c",
 #                         b_vars = "b")
 
-ml_linreg_logreg <- function(all_data = NULL,
+ml_logreg_logreg <- function(all_data = NULL,
                              main = NULL,
                              internal = NULL,
                              external = NULL,
@@ -142,9 +142,7 @@ ml_linreg_logreg <- function(all_data = NULL,
   loc.alphas <- (n.betas + 1): (n.betas + n.alphas)
   alpha.labels <- paste("alpha", c("0", d_vars, c_vars), sep = "_")
 
-  loc.sigsq_e <- n.betas + n.alphas + 1
-
-  theta.labels <- c(beta.labels, alpha.labels, "sigsq_e")
+  theta.labels <- c(beta.labels, alpha.labels)
 
   # Log-likelihood function
   llf <- function(f.theta, estimating.hessian = FALSE) {
@@ -155,19 +153,20 @@ ml_linreg_logreg <- function(all_data = NULL,
 
     f.alphas <- matrix(f.theta[loc.alphas], ncol = 1)
 
-    f.sigsq_e <- f.theta[loc.sigsq_e]
-
     if (some.m) {
 
       # Likelihood for main study subjects:
-      # L = \sum_z f(Y|Z=z,C,B) P(Z=z|D,C)
-      mu_y.0cb <- onecb.m %*% f.betas[-2]
-      mu_y.1cb <- mu_y.0cb + f.beta_z
+      # L = \sum_z P(Y=y|Z=z,C,B) P(Z=z|D,C)
+
+      p_y.0cb <- (1 + exp(-onecb.m %*% f.betas[-2]))^(-1)
+      p_y.1cb <- (1 + exp(-onecb.m %*% f.betas[-2] - f.beta_z))^(-1)
+
       p_z.dc <- (1 + exp(-onedc.m %*% f.alphas))^(-1)
+
       ll.m <- sum(log(
-        dnorm(y.m, mean = mu_y.0cb, sd = sqrt(f.sigsq_e)) *
+        dbinom(y.m, size = 1, prob = p_y.0cb) *
           dbinom(0, size = 1, prob = p_z.dc) +
-          dnorm(y.m, mean = mu_y.1cb, sd = sqrt(f.sigsq_e)) *
+          dbinom(y.m, size = 1, prob = p_y.1cb) *
           dbinom(1, size = 1, prob = p_z.dc)
       ))
 
@@ -180,9 +179,8 @@ ml_linreg_logreg <- function(all_data = NULL,
       # Likelihood for internal validation subjects:
       # L = f(Y|Z,C,B) f(Z|D,C)
       ll.i <- sum(
-        dnorm(y.i, log = TRUE,
-              mean = onezcb.i %*% f.betas,
-              sd = sqrt(f.sigsq_e)) +
+        dbinom(y.i, log = TRUE, size = 1,
+               prob = (1 + exp(-onezcb.i %*% f.betas))^(-1)) +
           dbinom(z.i, log = TRUE, size = 1,
                  prob = (1 + exp(-onedc.i %*% f.alphas))^(-1))
       )
@@ -210,14 +208,10 @@ ml_linreg_logreg <- function(all_data = NULL,
 
   }
 
-  # Create list of extra arguments, and assign default starting values and
-  # lower values if not specified by user
+  # Create list of extra arguments, and assign defaults if not specified by user
   extra.args <- list(...)
   if (is.null(extra.args$start)) {
-    extra.args$start <- c(rep(0.01, n.betas + n.alphas), 1)
-  }
-  if (is.null(extra.args$lower)) {
-    extra.args$lower <- c(rep(-Inf, n.betas + n.alphas), 1e-4)
+    extra.args$start <- rep(0.01, n.betas + n.alphas)
   }
   if (is.null(extra.args$control$rel.tol)) {
     extra.args$control$rel.tol <- 1e-6
