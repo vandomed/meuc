@@ -1,15 +1,15 @@
-#' Maximum Likelihood with Three Models: Logistic Regression, Logistic
+#' Maximum Likelihood with Three Models: Linear Regression, Logistic
 #' Regression, and Linear Regression
 #'
 #' Calculates maximum likelihood estimates for measurement error/unmeasured
-#' confounding scenario where Y|(Z,X,\strong{C},\strong{B}) is logistic
-#' regression, X|(Z,\strong{C},\strong{B}) is logistic regression, and
+#' confounding scenario where Y|(Z,X,\strong{C},\strong{B}) is linear regression,
+#' X|(Z,\strong{C},\strong{B}) is logistic regression, and
 #' Z|(\strong{D},\strong{C}) is linear regression.
 #'
 #' The true disease model is:
 #'
-#' logit[P(Y = 1)] = beta_0 + beta_x X + beta_z Z + \strong{beta_c}^T \strong{C}
-#' + \strong{beta_b}^T \strong{B}
+#' Y = beta_0 + beta_x X + beta_z Z + \strong{beta_c}^T \strong{C} +
+#' \strong{beta_b}^T \strong{B} + e, e ~ N(0, sigsq_e)
 #'
 #' The X|(Z,\strong{C},\strong{B}) model is:
 #'
@@ -29,18 +29,19 @@
 #' impractical in that scenario.
 #'
 #'
-#' @inheritParams ml_linreg_logreg_linreg
+#' @inheritParams ml_logistic_linear
+#' @param x_var Character string specifying name of X variable.
 #'
 #'
-#' @inherit ml_linreg_linreg return
+#' @inherit ml_linear_linear return
 #'
 #'
 #' @export
 
 # # Data for testing
-# n.m <- 200
-# n.e <- 1000
-# n.i <- 0
+# n.m <- 0
+# n.e <- 50000
+# n.i <- 100
 # n <- n.m + n.e + n.i
 #
 # alphas <- c(0, 0.25, 0.25)
@@ -49,6 +50,7 @@
 # gammas <- c(-0.2, 0.2, 0.3, 0.1)
 #
 # betas <- c(0, 0.25, 0.1, 0.05, 0.15)
+# sigsq_e <- 0.5
 #
 # d <- rnorm(n)
 # c <- rnorm(n)
@@ -59,8 +61,8 @@
 # x <- rbinom(n, size = 1,
 #             prob = (1 + exp(-gammas[1] - gammas[2] * z - gammas[3] * c - gammas[4] * b))^(-1))
 #
-# y <- rbinom(n, size = 1,
-#             prob = (1 + exp(-betas[1] - betas[2] * x - betas[3] * z - betas[4] * c - betas[5] * b))^(-1))
+# y <- betas[1] + betas[2] * x + betas[3] * z + betas[4] * c + betas[5] * b +
+#   rnorm(n, sd = sqrt(sigsq_e))
 #
 # all_data <- data.frame(y = y, x = x, z = z, c = c, b = b, d = d)
 # all_data[1: n.e, 1] <- NA
@@ -74,30 +76,29 @@
 # b_vars <- "b"
 # estimate_var <- FALSE
 #
-# fit <- ml_logreg_logreg_linreg(all_data = all_data,
+# fit <- ml_linear_logistic_linear(all_data = all_data,
 #                                y_var = "y",
 #                                x_var = "x",
 #                                z_var = "z",
 #                                d_vars = "d",
 #                                c_vars = "c",
 #                                b_vars = "b",
-#                                integrate_tol = 1e-4,
 #                                control = list(trace = 1))
 
-ml_logreg_logreg_linreg <- function(all_data = NULL,
-                                    main = NULL,
-                                    internal = NULL,
-                                    external = NULL,
-                                    y_var,
-                                    x_var,
-                                    z_var,
-                                    d_vars = NULL,
-                                    c_vars = NULL,
-                                    b_vars = NULL,
-                                    integrate_tol = 1e-8,
-                                    integrate_tol_hessian = integrate_tol,
-                                    estimate_var = FALSE,
-                                    ...) {
+ml_linear_logistic_linear <- function(all_data = NULL,
+                                      main = NULL,
+                                      internal = NULL,
+                                      external = NULL,
+                                      y_var,
+                                      x_var,
+                                      z_var,
+                                      d_vars = NULL,
+                                      c_vars = NULL,
+                                      b_vars = NULL,
+                                      integrate_tol = 1e-8,
+                                      integrate_tol_hessian = integrate_tol,
+                                      estimate_var = FALSE,
+                                      ...) {
 
   # Get dimension of D, C, and B
   kd <- length(d_vars)
@@ -161,21 +162,24 @@ ml_logreg_logreg_linreg <- function(all_data = NULL,
   loc.alphas <- (n.betas + n.gammas + 1): (n.betas + n.gammas + n.alphas)
   alpha.labels <- paste("alpha", c("0", d_vars, c_vars), sep = "_")
 
-  loc.sigsq_d <- n.betas + n.gammas + n.alphas + 1
+  loc.sigsq_e <- n.betas + n.gammas + n.alphas + 1
+  loc.sigsq_d <- n.betas + n.gammas + n.alphas + 2
 
-  theta.labels <- c(beta.labels, gamma.labels, alpha.labels, "sigsq_d")
+  theta.labels <- c(beta.labels, gamma.labels, alpha.labels, "sigsq_e", "sigsq_d")
 
   # Likelihood function for full ML
   if (some.m) {
     lf.full <- function(y,
                         x,
                         z,
+                        sigsq_e,
                         mu_z.dc,
                         sigsq_d,
                         beta_z,
                         gamma_z,
                         xcb.term,
-                        cb.term) {
+                        cb.term
+                        ) {
 
       z <- matrix(z, nrow = 1)
       dens <- apply(z, 2, function(z) {
@@ -183,14 +187,14 @@ ml_logreg_logreg_linreg <- function(all_data = NULL,
         # Transformation
         s <- z / (1 - z^2)
 
-        # P(Y=1|X,Z,C,B)
-        p_y.xzcb <- (1 + exp(-xcb.term - beta_z * s))^(-1)
+        # E(Y|X,Z,C,B)
+        mu_y.xzcb <- xcb.term + beta_z * s
 
         # P(X=1|Z,C,B)
         p_x.zcb <- (1 + exp(-cb.term - gamma_z * s))^(-1)
 
-        # f(Y,X,Z|D,C,B) = P(Y=y|X,Z,C,B) P(X=x|Z,C,B) f(Z|D,C)
-        dbinom(y, size = 1, prob = p_y.xzcb) *
+        # f(Y,X,Z|D,C,B) = f(Y|X,Z,C,B) P(X=x|Z,C,B) f(Z|D,C)
+        dnorm(y, mean = mu_y.xzcb, sd = sqrt(sigsq_e)) *
           dbinom(x, size = 1, prob = p_x.zcb) *
           dnorm(s, mean = mu_z.dc, sd = sqrt(sigsq_d))
 
@@ -215,6 +219,7 @@ ml_logreg_logreg_linreg <- function(all_data = NULL,
 
     f.alphas <- matrix(f.theta[loc.alphas], ncol = 1)
 
+    f.sigsq_e <- f.theta[loc.sigsq_e]
     f.sigsq_d <- f.theta[loc.sigsq_d]
 
     if (some.m) {
@@ -241,6 +246,7 @@ ml_logreg_logreg_linreg <- function(all_data = NULL,
                                       vectorInterface = TRUE,
                                       y = y.m[ii],
                                       x = x.m[ii],
+                                      sigsq_e = f.sigsq_e,
                                       mu_z.dc = mu_z.dc[ii],
                                       sigsq_d = f.sigsq_d,
                                       beta_z = f.beta_z,
@@ -265,10 +271,11 @@ ml_logreg_logreg_linreg <- function(all_data = NULL,
     if (some.i) {
 
       # Likelihood for internal validation subjects:
-      # L = P(Y=y|X,Z,C,B) P(X=x|Z,C,B) f(Z|D,C)
+      # L = f(Y|X,Z,C,B) P(X=x|Z,C,B) f(Z|D,C)
       ll.i <- sum(
-        dbinom(y.i, log = TRUE, size = 1,
-              prob = (1 + exp(-onexzcb.i %*% f.betas))^(-1)) +
+        dnorm(y.i, log = TRUE,
+              mean = onexzcb.i %*% f.betas,
+              sd = sqrt(f.sigsq_e)) +
           dbinom(x.i, log = TRUE, size = 1,
                  prob = (1 + exp(-onezcb.i %*% f.gammas))^(-1)) +
           dnorm(z.i, log = TRUE,
@@ -304,10 +311,10 @@ ml_logreg_logreg_linreg <- function(all_data = NULL,
   # lower values if not specified by user
   extra.args <- list(...)
   if (is.null(extra.args$start)) {
-    extra.args$start <- c(rep(0.01, n.betas + n.gammas + n.alphas), 1)
+    extra.args$start <- c(rep(0.01, n.betas + n.gammas + n.alphas), 1, 1)
   }
   if (is.null(extra.args$lower)) {
-    extra.args$lower <- c(rep(-Inf, n.betas + n.gammas + n.alphas), 1e-4)
+    extra.args$lower <- c(rep(-Inf, n.betas + n.gammas + n.alphas), 1e-4, 1e-4)
   }
   if (is.null(extra.args$control$rel.tol)) {
     extra.args$control$rel.tol <- 1e-6

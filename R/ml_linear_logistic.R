@@ -22,10 +22,10 @@
 #' without validation data, but estimation may be impractical in that scenario.
 #'
 #'
-#' @inheritParams ml_linreg_linreg
+#' @inheritParams ml_linear_linear
 #'
 #'
-#' @inherit ml_linreg_linreg return
+#' @inherit ml_linear_linear return
 #'
 #'
 #' @export
@@ -60,26 +60,26 @@
 # tdm_covariates <- mem_covariates <- NULL
 # estimate_var <- TRUE
 #
-# fit <- ml_linreg_logreg(all_data = all_data,
+# fit <- ml_linear_logistic(all_data = all_data,
 #                         y_var = "y",
 #                         z_var = "z",
 #                         d_vars = "d",
 #                         c_vars = "c",
 #                         b_vars = "b")
 
-ml_linreg_logreg <- function(all_data = NULL,
-                             main = NULL,
-                             internal = NULL,
-                             external = NULL,
-                             y_var,
-                             z_var,
-                             d_vars = NULL,
-                             c_vars = NULL,
-                             b_vars = NULL,
-                             tdm_covariates = NULL,
-                             mem_covariates = NULL,
-                             estimate_var = TRUE,
-                             ...) {
+ml_linear_logistic <- function(all_data = NULL,
+                               main = NULL,
+                               internal = NULL,
+                               external = NULL,
+                               y_var,
+                               z_var,
+                               d_vars = NULL,
+                               c_vars = NULL,
+                               b_vars = NULL,
+                               tdm_covariates = NULL,
+                               mem_covariates = NULL,
+                               estimate_var = TRUE,
+                               ...) {
 
   # If tdm.covariates and mem.covariates specified, figure out d.vars, c.vars,
   # and b.vars

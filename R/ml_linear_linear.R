@@ -1,9 +1,9 @@
-#' Maximum Likelihood with Linear Regression Disease Model and Log-Transformed
-#' Linear Regression Measurement Error Model
+#' Maximum Likelihood with Linear Regression Disease Model and Linear Regression
+#' Measurement Error Model
 #'
 #' Calculates maximum likelihood estimates for measurement error/unmeasured
-#' confounding scenario where true disease model is linear regression and
-#' measurement error model is log-transformed linear regression.
+#' confounding scenario where true disease model and measurement error model
+#' are linear regressions. Requires validation data.
 #'
 #' The true disease model is:
 #'
@@ -12,26 +12,35 @@
 #'
 #' The measurement error model is:
 #'
-#' ln(Z) = alpha_0 + \strong{alpha_d}^T \strong{D} + \strong{alpha_c}^T
-#' \strong{C} + d, d ~ N(0, sigsq_d)
+#' Z = alpha_0 + \strong{alpha_d}^T \strong{D} + \strong{alpha_c}^T \strong{C} +
+#' d, d ~ N(0, sigsq_d)
 #'
 #' There should be main study data with (Y, \strong{D}, \strong{C}, \strong{B})
 #' as well as internal validation data with
 #' (Y, Z, \strong{D}, \strong{C}, \strong{B}) and/or external validation data
 #' with (Z, \strong{D}, \strong{C}).
 #'
+#' @inheritParams rc_cond_exp
+#' @param estimate_var Logical value for whether to return variance-covariance
+#' matrix for parameter estimates.
+#' @param ... Additional arguments to pass to \code{\link[stats]{nlminb}}.
 #'
-#' @inheritParams ml_logreg_linreg
 #'
-#'
-#' @inherit ml_linreg_linreg return
-#'
+#' @return
+#' List containing:
+#' \enumerate{
+#' \item Numeric vector of parameter estimates.
+#' \item Variance-covariance matrix (if \code{estimate_var = TRUE}).
+#' \item Returned \code{\link[stats]{nlminb}} object from maximizing the
+#' log-likelihood function.
+#' \item Akaike information criterion (AIC).
+#' }
 #'
 #'
 #' @export
 
 # # Data for testing
-# n.m <- 10
+# n.m <- 1000
 # n.e <- 1000
 # n.i <- 1000
 # n <- n.m + n.e + n.i
@@ -45,7 +54,7 @@
 # d <- rnorm(n)
 # c <- rnorm(n)
 # b <- rnorm(n)
-# z <- exp(alphas[1] + alphas[2] * d + alphas[3] * c + rnorm(n, sd = sqrt(sigsq_d)))
+# z <- alphas[1] + alphas[2] * d + alphas[3] * c + rnorm(n, sd = sqrt(sigsq_d))
 # y <- betas[1] + betas[2] * z + betas[3] * c + betas[4] * b + rnorm(n, sd = sqrt(sigsq_e))
 #
 # all_data <- data.frame(y = y, z = z, c = c, b = b, d = d)
@@ -60,29 +69,26 @@
 # tdm_covariates <- mem_covariates <- NULL
 # estimate_var <- TRUE
 #
-# fit <- ml_linreg_lnreg(all_data = all_data,
-#                        y_var = "y",
-#                        z_var = "z",
-#                        d_vars = "d",
-#                        c_vars = "c",
-#                        b_vars = "b",
-#                        control = list(trace = 1))
+# fit <- ml_linear_linear(all_data = all_data,
+#                         y_var = "y",
+#                         z_var = "z",
+#                         d_vars = "d",
+#                         c_vars = "c",
+#                         b_vars = "b")
 
-ml_linreg_lnreg <- function(all_data = NULL,
-                            main = NULL,
-                            internal = NULL,
-                            external = NULL,
-                            y_var,
-                            z_var,
-                            d_vars = NULL,
-                            c_vars = NULL,
-                            b_vars = NULL,
-                            tdm_covariates = NULL,
-                            mem_covariates = NULL,
-                            integrate_tol = 1e-8,
-                            integrate_tol_hessian = integrate_tol,
-                            estimate_var = FALSE,
-                            ...) {
+ml_linear_linear <- function(all_data = NULL,
+                             main = NULL,
+                             internal = NULL,
+                             external = NULL,
+                             y_var,
+                             z_var,
+                             d_vars = NULL,
+                             c_vars = NULL,
+                             b_vars = NULL,
+                             tdm_covariates = NULL,
+                             mem_covariates = NULL,
+                             estimate_var = TRUE,
+                             ...) {
 
   # If tdm.covariates and mem.covariates specified, figure out d.vars, c.vars,
   # and b.vars
@@ -150,38 +156,6 @@ ml_linreg_lnreg <- function(all_data = NULL,
 
   theta.labels <- c(beta.labels, alpha.labels, "sigsq_e", "sigsq_d")
 
-  # Likelihood function for full ML
-  if (some.m) {
-    lf.full <- function(y,
-                        z,
-                        sigsq_e,
-                        meanlog_z.dc,
-                        sigsq_d,
-                        beta_z,
-                        cb.term) {
-
-      z <- matrix(z, nrow = 1)
-      dens <- apply(z, 2, function(z) {
-
-        # Transformation
-        s <- z / (1 - z)
-
-        # E(Y|Z,C,B)
-        mu_y.zcb <- cb.term + beta_z * s
-
-        # f(Y,Z|D,C,B) = f(Y|Z,C,B) f(Z|D,C)
-        dnorm(y, mean = mu_y.zcb, sd = sqrt(sigsq_e)) *
-          dlnorm(s, meanlog = meanlog_z.dc, sdlog = sqrt(sigsq_d))
-
-      })
-
-      # Back-transformation
-      out <- matrix(dens / (1 - z)^2, ncol = ncol(z))
-      return(out)
-
-    }
-  }
-
   # Log-likelihood function
   llf <- function(f.theta, estimating.hessian = FALSE) {
 
@@ -197,40 +171,13 @@ ml_linreg_lnreg <- function(all_data = NULL,
     if (some.m) {
 
       # Likelihood for main study subjects:
-      # L = \int_z f(Y|Z,C,B) f(Z|D,C) dZ
+      # L = f(Y|D,C,B)
+      ll.m <- sum(
+        dnorm(y.m, log = TRUE,
+              mean = onecb.m %*% f.betas[-2] + f.beta_z * onedc.m %*% f.alphas,
+              sd = sqrt(f.sigsq_e + f.beta_z^2 * f.sigsq_d))
+      )
 
-      # Get integration tolerance
-      int.tol <- ifelse(estimating.hessian, integrate_tol_hessian, integrate_tol)
-
-      # E(log(Z)|D,C) and part of E(Y|Z,C,B)
-      meanlog_z.dc <- onedc.m %*% f.alphas
-      cb.terms <- onecb.m %*% f.betas[-2]
-
-      int.vals <- c()
-      for (ii in 1: n.m) {
-
-        # Perform integration
-        int.ii <- cubature::hcubature(f = lf.full,
-                                      tol = int.tol,
-                                      lowerLimit = 0,
-                                      upperLimit = 1,
-                                      vectorInterface = TRUE,
-                                      y = y.m[ii],
-                                      sigsq_e = f.sigsq_e,
-                                      meanlog_z.dc = meanlog_z.dc[ii],
-                                      sigsq_d = f.sigsq_d,
-                                      beta_z = f.beta_z,
-                                      cb.term = cb.terms[ii])
-        int.vals[ii] <- int.ii$integral
-        if (int.ii$integral == 0) {
-          print(paste("Integral is 0 for ii = ", ii, sep = ""))
-          print(f.theta)
-          break
-        }
-
-      }
-
-      ll.m <- sum(log(int.vals))
 
     } else {
       ll.m <- 0
@@ -244,10 +191,11 @@ ml_linreg_lnreg <- function(all_data = NULL,
         dnorm(y.i, log = TRUE,
               mean = onezcb.i %*% f.betas,
               sd = sqrt(f.sigsq_e)) +
-          dlnorm(z.i, log = TRUE,
-                 meanlog = onedc.i %*% f.alphas,
-                 sdlog = sqrt(f.sigsq_d))
+          dnorm(z.i, log = TRUE,
+                mean = onedc.i %*% f.alphas,
+                sd = sqrt(f.sigsq_d))
       )
+
 
     } else {
       ll.i <- 0
@@ -258,9 +206,9 @@ ml_linreg_lnreg <- function(all_data = NULL,
       # Likelihood for external validation subjects:
       # L = f(Z|D,C)
       ll.e <- sum(
-        dlnorm(z.e, log = TRUE,
-               meanlog = onedc.e %*% f.alphas,
-               sdlog = sqrt(f.sigsq_d))
+        dnorm(z.e, log = TRUE,
+              mean = onedc.e %*% f.alphas,
+              sd = sqrt(f.sigsq_d))
       )
 
 
@@ -281,7 +229,7 @@ ml_linreg_lnreg <- function(all_data = NULL,
     extra.args$start <- c(rep(0.01, n.betas + n.alphas), 1, 1)
   }
   if (is.null(extra.args$lower)) {
-    extra.args$lower <- c(rep(-Inf, n.betas + n.alphas), rep(1e-4, 2))
+      extra.args$lower <- c(rep(-Inf, n.betas + n.alphas), rep(1e-4, 2))
   }
   if (is.null(extra.args$control$rel.tol)) {
     extra.args$control$rel.tol <- 1e-6

@@ -21,7 +21,7 @@
 #' with (Z, \strong{D}, \strong{C}).
 #'
 #'
-#' @inheritParams ml_linreg_linreg
+#' @inheritParams ml_linear_linear
 #' @param approx_integral Logical value for whether to use the probit
 #' approximation for the logistic-normal integral, to avoid numerically
 #' integrating \code{Z}'s out of the likelihood function.
@@ -33,7 +33,7 @@
 #' positive definite.
 #'
 #'
-#' @inherit ml_linreg_linreg return
+#' @inherit ml_linear_linear return
 #'
 #'
 #' @export
@@ -69,29 +69,29 @@
 # tdm_covariates <- mem_covariates <- NULL
 # estimate_var <- TRUE
 #
-# fit <- ml_logreg_linreg(all_data = all_data,
+# fit <- ml_logistic_linear(all_data = all_data,
 #                         y_var = "y",
 #                         z_var = "z",
 #                         d_vars = "d",
 #                         c_vars = "c",
 #                         b_vars = "b")
 
-ml_logreg_linreg <- function(all_data = NULL,
-                             main = NULL,
-                             internal = NULL,
-                             external = NULL,
-                             y_var,
-                             z_var,
-                             d_vars = NULL,
-                             c_vars = NULL,
-                             b_vars = NULL,
-                             tdm_covariates = NULL,
-                             mem_covariates = NULL,
-                             approx_integral = TRUE,
-                             integrate_tol = 1e-8,
-                             integrate_tol_hessian = integrate_tol,
-                             estimate_var = TRUE,
-                             ...) {
+ml_logistic_linear <- function(all_data = NULL,
+                               main = NULL,
+                               internal = NULL,
+                               external = NULL,
+                               y_var,
+                               z_var,
+                               d_vars = NULL,
+                               c_vars = NULL,
+                               b_vars = NULL,
+                               tdm_covariates = NULL,
+                               mem_covariates = NULL,
+                               approx_integral = TRUE,
+                               integrate_tol = 1e-8,
+                               integrate_tol_hessian = integrate_tol,
+                               estimate_var = TRUE,
+                               ...) {
 
   # If tdm.covariates and mem.covariates specified, figure out d.vars, c.vars,
   # and b.vars
