@@ -23,9 +23,9 @@ rc_cond_exp(all_data = NULL, main = NULL, internal = NULL,
 
 \item{z_var}{Character string specifying name of Z variable.}
 
-\item{d_vars}{Character string specifying name of D variables.}
+\item{d_vars}{Character string specifying name of \strong{D} variables.}
 
-\item{c_vars}{Character vector specifying names of C variables.}
+\item{c_vars}{Character vector specifying names of \strong{C} variables.}
 
 \item{b_vars}{Character vector specifying names of variables in true disease
 model but not in measurement error model.}
@@ -72,8 +72,9 @@ The measurement error model is:
 h[E(Z)] = \strong{alpha_d}^T \strong{D} + \strong{alpha_c}^T \strong{C}
 
 The procedure is as follows: in the validation study, fit the measurement
-error model to estimate alpha's; in the main study, calculate E(Z|D,C) and
-fit the true disease model with those values in place of the unobserved Z's.
+error model to estimate alpha's; in the main study, calculate
+E(Z|\strong{D},\strong{C}) and fit the true disease model with those values
+in place of the unobserved Z's.
 }
 \references{
 Kuha, J. (1994) "Corrections for exposure measurement error in logistic

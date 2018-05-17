@@ -162,7 +162,6 @@ ml_linreg_linreg <- function(all_data = NULL,
     # Extract parameters
     f.betas <- matrix(f.theta[loc.betas], ncol = 1)
     f.beta_z <- f.betas[2]
-    f.beta_0cb <- matrix(f.betas[-2], ncol = 1)
 
     f.alphas <- matrix(f.theta[loc.alphas], ncol = 1)
 
@@ -175,7 +174,7 @@ ml_linreg_linreg <- function(all_data = NULL,
       # L = f(Y|D,C,B)
       ll.m <- sum(
         dnorm(y.m, log = TRUE,
-              mean = onecb.m %*% f.beta_0cb + f.beta_z * onedc.m %*% f.alphas,
+              mean = onecb.m %*% f.betas[-2] + f.beta_z * onedc.m %*% f.alphas,
               sd = sqrt(f.sigsq_e + f.beta_z^2 * f.sigsq_d))
       )
 

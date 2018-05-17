@@ -14,8 +14,9 @@
 #' h[E(Z)] = \strong{alpha_d}^T \strong{D} + \strong{alpha_c}^T \strong{C}
 #'
 #' The procedure is as follows: in the validation study, fit the measurement
-#' error model to estimate alpha's; in the main study, calculate E(Z|D,C) and
-#' fit the true disease model with those values in place of the unobserved Z's.
+#' error model to estimate alpha's; in the main study, calculate
+#' E(Z|\strong{D},\strong{C}) and fit the true disease model with those values
+#' in place of the unobserved Z's.
 #'
 #' @param all_data Data frame with data for main study and validation study.
 #' @param main Data frame with data for the main study.
@@ -23,8 +24,8 @@
 #' @param external Data frame with data for the external validation study.
 #' @param y_var Character string specifying name of Y variable.
 #' @param z_var Character string specifying name of Z variable.
-#' @param d_vars Character string specifying name of D variables.
-#' @param c_vars Character vector specifying names of C variables.
+#' @param d_vars Character string specifying name of \strong{D} variables.
+#' @param c_vars Character vector specifying names of \strong{C} variables.
 #' @param b_vars Character vector specifying names of variables in true disease
 #' model but not in measurement error model.
 #' @param tdm_covariates Character vector specifying variables in true disease

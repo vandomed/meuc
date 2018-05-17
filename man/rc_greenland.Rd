@@ -20,7 +20,7 @@ rc_greenland(all_data = NULL, main = NULL, internal = NULL, y_var, z_var,
 
 \item{d_var}{Character string specifying name of D variable.}
 
-\item{c_vars}{Character vector specifying names of C variables.}
+\item{c_vars}{Character vector specifying names of \strong{C} variables.}
 
 \item{b_vars}{Character vector specifying names of variables in true disease
 model but not in measurement error model.}

@@ -23,9 +23,9 @@ ml_linreg_linreg(all_data = NULL, main = NULL, internal = NULL,
 
 \item{z_var}{Character string specifying name of Z variable.}
 
-\item{d_vars}{Character string specifying name of D variables.}
+\item{d_vars}{Character string specifying name of \strong{D} variables.}
 
-\item{c_vars}{Character vector specifying names of C variables.}
+\item{c_vars}{Character vector specifying names of \strong{C} variables.}
 
 \item{b_vars}{Character vector specifying names of variables in true disease
 model but not in measurement error model.}
