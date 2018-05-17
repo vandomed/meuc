@@ -9,4 +9,4 @@ Description: Functions for implementing corrective methods for covariate measure
 License: GPL-3
 LazyData: true
 RoxygenNote: 6.0.1
-Imports: cubature, dplyr, ggplot2, mvtnorm, numDeriv, pracma, stats
+Imports: cubature, dplyr, ggplot2, Matrix, mvtnorm, numDeriv, pracma, stats

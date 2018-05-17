@@ -7,8 +7,8 @@
 rc_algebraic(all_data = NULL, main = NULL, internal = NULL,
   external = NULL, y_var, z_var, d_var = NULL, c_vars = NULL,
   b_vars = NULL, tdm_covariates = NULL, tdm_family = "gaussian",
-  mem_covariates = NULL, mem_family = "gaussian", beta_0_formula = 1,
-  delta_var = FALSE, boot_var = FALSE, boots = 100)
+  mem_covariates = NULL, beta_0_formula = 1, delta_var = FALSE,
+  boot_var = FALSE, boots = 100)
 }
 \arguments{
 \item{all_data}{Data frame with data for main study and validation study.}
@@ -39,9 +39,6 @@ model. The Z variable is automatically included whether you include it in
 
 \item{mem_covariates}{Character vector specifying variables in measurement
 error model.}
-
-\item{mem_family}{Character string specifying family of measurement error
-model (see \code{\link[stats]{glm}}).}
 
 \item{beta_0_formula}{If \code{1}, formula for true disease model intercept
 is:
@@ -99,21 +96,19 @@ solving a system of equations to get the regression calibration estimates.
 }
 \references{
 Kuha, J. (1994) "Corrections for exposure measurement error in logistic
-regression models with an application to nutritional data." \emph{Statistics
-in Medicine} \strong{13}(11): 1135-1148.
+regression models with an application to nutritional data." \emph{Stat. Med.}
+\strong{13}(11): 1135-1148.
 
 Lyles, R.H. and Kupper, L.L. (2012) "Approximate and pseudo-likelihood
 analysis for logistic regression using external validation data to model log
-exposure." \emph{Journal of Agricultural, Biological, and Environmental
-Statistics} \strong{18}(1): 22-38.
+exposure." \emph{J. Agric. Biol. Environ. Stat.} \strong{18}(1): 22-38.
 
 Rosner, B., Willett, W. and Spiegelman, D. (1989) "Correction of logistic
 regression relative risk estimates and confidence intervals for systematic
-within-person measurement error." \emph{Statistics in Medicine}
-\strong{8}(9): 1051-69.
+within-person measurement error." \emph{Stat. Med.} \strong{8}(9): 1051-69.
 
 Spiegelman, D., Carroll, R.J. and Kipnis, V. (2001) "Efficient regression
 calibration for logistic regression in main study/internal validation study
-designs with an imperfect reference instrument." \emph{Statistics in
-Medicine} \strong{20}(1): 139-160.
+designs with an imperfect reference instrument." \emph{Stat. Med.}
+\strong{20}(1): 139-160.
 }

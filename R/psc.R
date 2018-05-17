@@ -25,8 +25,13 @@
 #' propensity score.
 #' @param surrogacy Logical value for whether to assume surrogacy, which means
 #' that the error-prone propensity score is not informative of Y given X and the
-#' gold standard propensity score. If validation data is external, have to
-#' assume surrogacy.
+#' gold standard propensity score. Have to assume surrogacy if validation data
+#' is external.
+#' @param ep_data Character string controlling what data is used to fit the
+#' error-prone propensity score model. Choices are \code{"validation"} for
+#' validation study data, \code{"all"} for main study and validation study data,
+#' and \code{"separate"} for validation data for first step and main study data
+#' for second step.
 #'
 #'
 #' @references
@@ -38,37 +43,40 @@
 #'
 #' @export
 # # Data for testing
-# n.m <- 1000
-# n.e <- 100
+# n.m <- 5000
+# n.e <- 5000
 # n <- n.m + n.e
 #
-# alphas <- c(0, 0.25, 0.25)
-# sigsq_d <- 0.5
-#
-# betas <- c(0, 0.25, 0.1)
+# gammas <- c(0, 0.25, 0.25)
+# betas <- c(0, 0.25, 0.1, 0.2)
 # sigsq_e <- 0.5
 #
-# d <- rnorm(n)
 # c <- rnorm(n)
-# z <- alphas[1] + alphas[2] * d + alphas[3] * c + rnorm(n, sd = sqrt(sigsq_d))
-# y <- betas[1] + betas[2] * z + betas[3] * c + rnorm(n, sd = sqrt(sigsq_e))
+# z <- rnorm(n)
+# x <- rbinom(n, size = 1, prob = (1 + exp(-gammas[1] - gammas[2] * c - gammas[3] * z))^(-1))
+# y <- betas[1] + betas[2] * z + betas[3] * x + betas[4] * c + rnorm(n, sd = sqrt(sigsq_e))
 #
-# all_data <- data.frame(y = y, z = z, c = c, d = d)
+# all_data <- data.frame(y = y, z = z, x = x, c = c)
 # all_data[1: n.e, 1] <- NA
 # all_data[(n.e + 1): n, 2] <- NA
 # main <- internal <- external <- NULL
 # y_var <- "y"
-# z_var <- "z"
-# d_var <- "d"
-# c_vars <- "c"
-# b_vars <- NULL
-# tdm_covariates <- mem_covariates <- NULL
+# x_var <- "x"
+# gs_vars <- c("z", "c")
+# ep_vars <- "c"
 # tdm_family <- "gaussian"
-# mem_family <- "gaussian"
+# surrogacy <- TRUE
+# ep_data <- "validation"
 # beta_0_formula <- 1
 # delta_var <- TRUE
 # boot_var <- TRUE
 # boots <- 100
+#
+# fit <- psc(all_data = all_data,
+#            y_var = "y",
+#            x_var = "x",
+#            gs_vars = c("z", "c"),
+#            ep_vars = "c")
 psc <- function(all_data = NULL,
                 main = NULL,
                 internal = NULL,
@@ -79,20 +87,15 @@ psc <- function(all_data = NULL,
                 ep_vars,
                 tdm_family = "gaussian",
                 surrogacy = TRUE,
-                weighted = FALSE,
-                ep_refit = FALSE) {
-
-  # Using conditional expectation view of RC rather than algebraic view, because
-  # Delta-method variance esimator wouldn't be valid anyway, and conditional is
-  # more flexible.
+                ep_data = "validation",
+                all_imputed = FALSE,
+                boot_var = FALSE, boots = 100) {
 
   # Get full list of covariates
   covariates <- unique(c(x_var, gs_vars, ep_vars))
 
   # Get list of covariates subject to missingness
   covariates.missing <- setdiff(gs_vars, ep_vars)
-
-  # covariates <- unique(c(z.var, surrogate.var, tdm.covariates))
 
   # If all_data not specified, create it from main, internal, and external
   if (is.null(all_data)) {
@@ -120,62 +123,104 @@ psc <- function(all_data = NULL,
 
   }
 
+  # Get validation data with (X, Z, C)
+  val_data <- all_data[complete.cases(all_data[, covariates]), ]
 
+  # Fit error-prone propensity score model
+  ep.formula <- paste(paste(x_var, "~"), paste(ep_vars, collapse = " + "))
+  if (ep_data %in% c("validation", "separate")) {
+    fit.ep <- glm(ep.formula, data = val_data, family = "binomial")
+  } else if (ep_data == "all") {
+    fit.ep <- glm(ep.formula, data = all_data, family = "binomial")
+  }
 
-  # Fit MEM using all available data to get alpha.hat vector
-  mem.formula <- paste(paste(z.var, " ~ ", sep = ""), paste(c(surrogate.var, tdm.covariates), collapse = " + "), sep = "")
-  mem.fit <- glm(mem.formula, data = all_data, family = mem.family)
-  alpha.hat <- mem.fit$coef
+  # Fit gold standard propensity score model
+  gs.formula <- paste(paste(x_var, "~"), paste(gs_vars, collapse = " + "))
+  fit.gs <- glm(gs.formula, data = val_data, family = "binomial")
 
-  # Fit naive TDM to get betastar.hat vector
-  tdm.naive.formula <- paste(paste(y_var, " ~ ", sep = ""), paste(c(surrogate.var, tdm.covariates), collapse = " + "), sep = "")
-  tdm.naive.fit <- glm(tdm.naive.formula, data = all_data, family = tdm_family)
-  betastar.hat <- tdm.naive.fit$coef
+  # Fit MEM for G vs. (X, G*)
+  fitted.gstar <- predict(fit.ep, newdata = val_data, type = "response")
+  fitted.g <- fit.gs$fitted
+  fit.mem <- lm(fitted.g ~ val_data[, x_var] + fitted.gstar)
 
+  # Calculate G's for data with Y
+  y_data <- all_data[! is.na(all_data[, y_var]), ]
 
-  # Create matrix and data frame versions of all_data
-  dat.mat <- as.matrix(dat)
-  dat.df <- as.data.frame(dat)
+  # Calculate G's for subjects with (C, Z), unless all_imputed is TRUE
+  y_data$g <- NA
+  if (! all_imputed) {
+    y_data$g <- predict(fit.gs, newdata = y_data, type = "response")
+  }
 
-  # Fit propensity score models using validation data, whether it is internal, external, or both
-  locs.val <- which(complete.cases(dat.mat[, x.gs.columns]))
-  locs.main <- which(complete.cases(dat.mat[, x.ep.columns]) & !complete.cases(dat.mat[, x.gs.columns]) & !is.na(dat.mat[, y.column]))
-  val.mat <- dat.mat[locs.val, ]
-  ps.ep.fit <- glm(val.mat[, a.column] ~ val.mat[, x.ep.columns], family = "binomial")
-  ps.gs.fit <- glm(val.mat[, a.column] ~ val.mat[, x.gs.columns], family = "binomial")
+  # Re-fit error-prone propensity score model if requested
+  if (ep_data == "separate") {
+    fit.ep <- glm(ep.formula, data = y_data, family = "binomial")
+  }
 
-  # Fit MEM relating gold-standard propensity score to exposure and error-prone propensity score
-  mem.fit <- lm(ps.gs.fit$fitted ~ val.mat[, a.column] + ps.ep.fit$fitted)
-
-  # Create ps.ep variable for all observations
-  dat.df$ps.ep <- (1 + exp(- cbind(rep(1, nrow(dat.mat)), dat.mat[, x.ep.columns]) %*% ps.ep.fit$coef))^-1
-
-  # Create ps.gs variable, directly from ps.gs.fit where possible
-  dat.df$ps.gs <- mem.fit$coef[1] + mem.fit$coef[2] * dat.df[, a.column] + mem.fit$coef[3] * dat.df$ps.ep
-  dat.df$ps.gs[locs.val] <- ps.gs.fit$fitted
+  # Calculate E(G|X,G*)
+  locs <- which(is.na(y_data$g))
+  y_data$gstar[locs] <- predict(fit.ep, newdata = y_data[locs, ], type = "response")
+  y_data$g[locs] <- as.matrix(cbind(1, y_data[, c(x_var, "gstar")])) %*% fit.mem$coef
 
   # Fit TDM and return beta estimate
   if (surrogacy) {
-    if (weighted) {
-      dat.new <- data.frame(y = c(dat.df[locs.main, y.column], dat.df[locs.val, y.column]),
-                            z = c(rep(NA, length(locs.main)), dat.df$ps.gs[locs.val]),
-                            c = c(dat.df[locs.main, a.column], dat.df[locs.val, a.column]),
-                            d = c(dat.df$ps.ep[locs.main], dat.df$ps.ep[locs.val]))
-      beta <- rc.greenland(dat = dat.new, y.column = 1, z.column = 2, c.columns = 3, d.column = 4)$theta[c(1, 3, 2)]
-      beta.labels <- c("b.0", "b.a", "b.gs")
-      names(beta) <- beta.labels
-    } else {
-      tdm.fit <- glm(dat.df[, y.column] ~ dat.df[, a.column] + dat.df$ps.gs, family = tdm_family)
-      beta <- tdm.fit$coef
-      beta.labels <- c("b.0", "b.a", "b.gs")
-      names(beta) <- beta.labels
-    }
+    tdm.formula <- paste(paste(y_var, "~"), paste(c(x_var, "g"), collapse = " + "))
+    beta.labels <- paste("beta", c("0", x_var, "g"), sep = "_")
   } else {
-    tdm.fit <- glm(dat.df[, y.column] ~ dat.df[, a.column] + dat.df$ps.gs + dat.df$ps.ep, family = tdm_family)
-    beta <- tdm.fit$coef
-    beta.labels <- c("b.0", "b.a", "b.gs", "b.ep")
-    names(beta) <- beta.labels
+    tdm.formula <- paste(paste(y_var, "~"), paste(c(x_var, "g", "gstar"), collapse = " + "))
+    beta.labels <- paste("beta", c("0", x_var, "g", "gstar"), sep = "_")
   }
-  return(beta)
+  tdm.fit <- glm(tdm.formula, data = y_data, family = tdm_family)
+  beta.hat <- tdm.fit$coef
+  names(beta.hat) <- beta.labels
+
+  # Add beta.hat to ret.list
+  ret.list <- list(beta.hat = beta.hat)
+
+  # Get bootstrap variance estimate if requested
+  if (boot_var) {
+
+    # Various data types
+    locs.m <- which(! is.na(all_data[, y_var]) & ! complete.cases(all_data[, covariates]))
+    locs.i <- which(! is.na(all_data[, y_var]) & complete.cases(all_data[, covariates]))
+    locs.e <- which(is.na(all_data[, y_var]) & complete.cases(all_data[, covariates]))
+
+    # Initialize matrix for theta estimates
+    beta.hat.boots <- matrix(NA, ncol = length(beta.hat), nrow = boots)
+
+    # Bootstrap
+    for (ii in 1: boots) {
+
+      beta.hat.boots[ii, ] <- psc(
+        all_data = all_data[c(sample(locs.m, replace = TRUE),
+                              sample(locs.i, replace = TRUE),
+                              sample(locs.e, replace = TRUE)), ],
+        main = NULL,
+        internal = NULL,
+        external = NULL,
+        y_var = y_var,
+        x_var = x_var,
+        gs_vars = gs_vars,
+        ep_vars = ep_vars,
+        tdm_family = tdm_family,
+        surrogacy = surrogacy,
+        ep_data = ep_data,
+        all_imputed = all_imputed
+      )
+
+    }
+
+    # Calculate bootstrap variance estimate and add it to ret.list
+    boot.variance <- var(beta.hat.boots)
+    rownames(boot.variance) <- colnames(boot.variance) <- beta.labels
+    ret.list$boot.var <- boot.variance
+
+  }
+
+  # Return ret.list
+  if (length(ret.list) == 1) {
+    ret.list <- ret.list[[1]]
+  }
+  return(ret.list)
 
 }

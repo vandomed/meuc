@@ -23,9 +23,10 @@
 #'
 #'
 #' @docType package
-#'
 #' @importFrom cubature adaptIntegrate
+#' @importFrom dplyr %>%
 #' @import ggplot2
+#' @importFrom Matrix bdiag
 #' @importFrom mvtnorm dmvnorm
 #' @importFrom numDeriv jacobian
 #' @importFrom pracma hessian

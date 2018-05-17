@@ -23,6 +23,8 @@ rc_cond_exp(all_data = NULL, main = NULL, internal = NULL,
 
 \item{z_var}{Character string specifying name of Z variable.}
 
+\item{d_vars}{Character string specifying name of D variables.}
+
 \item{c_vars}{Character vector specifying names of C variables.}
 
 \item{b_vars}{Character vector specifying names of variables in true disease
@@ -49,8 +51,6 @@ subjects).}
 variance-covariance matrix.}
 
 \item{boots}{Numeric value specifying number of bootstrap samples to use.}
-
-\item{d_var}{Character string specifying name of D variables.}
 }
 \value{
 If \code{boot_var = TRUE}, list containing parameter estimates and
@@ -76,21 +76,19 @@ fit the true disease model with those values in place of the unobserved Z's.
 }
 \references{
 Kuha, J. (1994) "Corrections for exposure measurement error in logistic
-regression models with an application to nutritional data." \emph{Statistics
-in Medicine} \strong{13}(11): 1135-1148.
+regression models with an application to nutritional data." \emph{Stat. Med.}
+\strong{13}(11): 1135-1148.
 
 Lyles, R.H. and Kupper, L.L. (2012) "Approximate and pseudo-likelihood
 analysis for logistic regression using external validation data to model log
-exposure." \emph{Journal of Agricultural, Biological, and Environmental
-Statistics} \strong{18}(1): 22-38.
+exposure." \emph{J. Agric. Biol. Environ. Stat.} \strong{18}(1): 22-38.
 
 Rosner, B., Willett, W. and Spiegelman, D. (1989) "Correction of logistic
 regression relative risk estimates and confidence intervals for systematic
-within-person measurement error." \emph{Statistics in Medicine}
-\strong{8}(9): 1051-69.
+within-person measurement error." \emph{Stat. Med.} \strong{8}(9): 1051-69.
 
 Spiegelman, D., Carroll, R.J. and Kipnis, V. (2001) "Efficient regression
 calibration for logistic regression in main study/internal validation study
-designs with an imperfect reference instrument." \emph{Statistics in
-Medicine} \strong{20}(1): 139-160.
+designs with an imperfect reference instrument." \emph{Stat. Med.}
+\strong{20}(1): 139-160.
 }

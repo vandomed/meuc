@@ -22,7 +22,7 @@
 #' @param external Data frame with data for the external validation study.
 #' @param y_var Character string specifying name of Y variable.
 #' @param z_var Character string specifying name of Z variable.
-#' @param d_var Character string specifying name of D variables.
+#' @param d_vars Character string specifying name of D variables.
 #' @param c_vars Character vector specifying names of C variables.
 #' @param b_vars Character vector specifying names of variables in true disease
 #' model but not in measurement error model.
@@ -52,6 +52,53 @@
 #'
 #'
 #' @export
+# # Data for testing
+# n.m <- 1000
+# n.e <- 1000
+# n.i <- 1000
+# n <- n.m + n.e + n.i
+#
+# alphas <- c(0, 0.25, 0.25)
+# sigsq_d <- 0.5
+#
+# betas <- c(0, 0.25, 0.1)
+# sigsq_e <- 0.5
+#
+# d <- rnorm(n)
+# c <- rnorm(n)
+# z <- alphas[1] + alphas[2] * d + alphas[3] * c + rnorm(n, sd = sqrt(sigsq_d))
+# y <- betas[1] + betas[2] * z + betas[3] * c + rnorm(n, sd = sqrt(sigsq_e))
+#
+# all_data <- data.frame(y = y, z = z, c = c, d = d)
+# all_data[1: n.e, 1] <- NA
+# all_data[(n.e + 1): (n.e + n.m), 2] <- NA
+# main <- internal <- external <- NULL
+# main <- internal <- external <- NULL
+# y_var <- "y"
+# z_var <- "z"
+# d_vars <- "d"
+# c_vars <- "c"
+# b_vars <- NULL
+# tdm_covariates <- mem_covariates <- NULL
+# tdm_family <- "gaussian"
+# mem_family <- "gaussian"
+# beta_0_formula <- 1
+# all_imputed <- FALSE
+# boot_var <- TRUE
+# boots <- 100
+# fit1 <- rc_algebraic(all_data = all_data,
+#                      y_var = "y",
+#                      z_var = "z",
+#                      d_var = "d",
+#                      c_vars = "c")
+# fit2 <- rc_cond_exp(all_data = all_data,
+#                     y_var = "y",
+#                     z_var = "z",
+#                     d_var = "d",
+#                     c_vars = "c")
+# fit1
+# fit2
+
 rc_cond_exp <- function(all_data = NULL,
                         main = NULL,
                         internal = NULL,
@@ -109,9 +156,6 @@ rc_cond_exp <- function(all_data = NULL,
     }
 
   }
-
-  # Get sample size
-  n <- nrow(all_data)
 
   # Store original all_data data frame
   all_data_original <- all_data
@@ -177,17 +221,9 @@ rc_cond_exp <- function(all_data = NULL,
   if (boot_var) {
 
     # Various data types
-    locs.main <-
-      which(is.na(all_data_original[, z_var]) &
-              complete.cases(all_data_original[, setdiff(covariates, z_var)]))
-    locs.internal <-
-      which(complete.cases(all_data_original[, c(y_var, covariates)]))
-    locs.external <-
-      which(is.na(all_data_original[, y_var]) &
-              complete.cases(all_data_original[, c(z_var, mem_covariates)]))
-    n.main <- length(locs.main)
-    n.internal <- length(locs.internal)
-    n.external <- length(locs.external)
+    locs.m <- which(! is.na(all_data[, y_var]) & is.na(all_data[, z_var]))
+    locs.i <- which(! is.na(all_data[, y_var]) & ! is.na(all_data[, z_var]))
+    locs.e <- which(is.na(all_data[, y_var]) & ! is.na(all_data[, z_var]))
 
     # Initialize matrix for theta estimates
     theta.hat.boots <- matrix(NA, ncol = length(theta.hat), nrow = boots)
@@ -195,22 +231,17 @@ rc_cond_exp <- function(all_data = NULL,
     # Bootstrap
     for (ii in 1: boots) {
 
-      locs.main.sampled <- sample(locs.main, replace = TRUE)
-      locs.internal.sampled <- sample(locs.internal, replace = TRUE)
-      locs.external.sampled <- sample(locs.external, replace = TRUE)
-
-      all_data_boot <- all_data_original[c(locs.main.sampled,
-                                           locs.internal.sampled,
-                                           locs.external.sampled), ]
-
-      theta.hat.boots[ii, ] <- rc_cond_exp(all_data = all_data_boot,
-                                           y_var = y_var,
-                                           z_var = z_var,
-                                           tdm_covariates = tdm_covariates,
-                                           tdm_family = tdm_family,
-                                           mem_covariates = mem_covariates,
-                                           mem_family = mem_family,
-                                           all_imputed = all_imputed)
+      theta.hat.boots[ii, ] <- rc_cond_exp(
+        all_data = all_data[c(sample(locs.m, replace = TRUE),
+                              sample(locs.i, replace = TRUE),
+                              sample(locs.e, replace = TRUE)), ],
+        y_var = y_var,
+        z_var = z_var,
+        tdm_covariates = tdm_covariates,
+        tdm_family = tdm_family,
+        mem_covariates = mem_covariates,
+        mem_family = mem_family,
+        all_imputed = all_imputed)
 
     }
 

@@ -55,29 +55,29 @@
 #'
 #' @references
 #' Kuha, J. (1994) "Corrections for exposure measurement error in logistic
-#' regression models with an application to nutritional data." \emph{Statistics
-#' in Medicine} \strong{13}(11): 1135-1148.
+#' regression models with an application to nutritional data." \emph{Stat. Med.}
+#' \strong{13}(11): 1135-1148.
 #'
 #' Lyles, R.H. and Kupper, L.L. (2012) "Approximate and pseudo-likelihood
 #' analysis for logistic regression using external validation data to model log
-#' exposure." \emph{Journal of Agricultural, Biological, and Environmental
-#' Statistics} \strong{18}(1): 22-38.
+#' exposure." \emph{J. Agric. Biol. Environ. Stat.} \strong{18}(1): 22-38.
 #'
 #' Rosner, B., Willett, W. and Spiegelman, D. (1989) "Correction of logistic
 #' regression relative risk estimates and confidence intervals for systematic
-#' within-person measurement error." \emph{Statistics in Medicine}
-#' \strong{8}(9): 1051-69.
+#' within-person measurement error." \emph{Stat. Med.} \strong{8}(9): 1051-69.
 #'
 #' Spiegelman, D., Carroll, R.J. and Kipnis, V. (2001) "Efficient regression
 #' calibration for logistic regression in main study/internal validation study
-#' designs with an imperfect reference instrument." \emph{Statistics in
-#' Medicine} \strong{20}(1): 139-160.
+#' designs with an imperfect reference instrument." \emph{Stat. Med.}
+#' \strong{20}(1): 139-160.
 #'
 #' @export
+#'
 # # Data for testing
 # n.m <- 1000
-# n.e <- 100
-# n <- n.m + n.e
+# n.e <- 1000
+# n.i <- 1000
+# n <- n.m + n.e + n.i
 #
 # alphas <- c(0, 0.25, 0.25)
 # sigsq_d <- 0.5
@@ -92,7 +92,7 @@
 #
 # all_data <- data.frame(y = y, z = z, c = c, d = d)
 # all_data[1: n.e, 1] <- NA
-# all_data[(n.e + 1): n, 2] <- NA
+# all_data[(n.e + 1): (n.e + n.m), 2] <- NA
 # main <- internal <- external <- NULL
 # y_var <- "y"
 # z_var <- "z"
@@ -101,11 +101,16 @@
 # b_vars <- NULL
 # tdm_covariates <- mem_covariates <- NULL
 # tdm_family <- "gaussian"
-# mem_family <- "gaussian"
 # beta_0_formula <- 1
 # delta_var <- TRUE
 # boot_var <- TRUE
 # boots <- 100
+# fit <- rc_algebraic(all_data = all_data,
+#                     y_var = "y",
+#                     z_var = "z",
+#                     d_var = "d",
+#                     c_vars = "c")
+
 rc_algebraic <- function(all_data = NULL,
                          main = NULL,
                          internal = NULL,
@@ -115,27 +120,21 @@ rc_algebraic <- function(all_data = NULL,
                          d_var = NULL,
                          c_vars = NULL,
                          b_vars = NULL,
-                         tdm_covariates = NULL, tdm_family = "gaussian",
-                         mem_covariates = NULL, mem_family = "gaussian",
+                         tdm_covariates = NULL,
+                         tdm_family = "gaussian",
+                         mem_covariates = NULL,
                          beta_0_formula = 1,
                          delta_var = FALSE,
                          boot_var = FALSE, boots = 100) {
 
   # If beta_0_formula = 2, check that it is reasonable
   if (beta_0_formula == 2) {
-    if (mem_family != "gaussian") {
-      stop("The beta_0_formula = 2 intercept is appropriate when the true
-           disease model is logistic regression, the outcome is rare, and
-           Z|(D, C) is normal. The mem_family you selected is not linear
-           regression, so V(Z|D, C) probably depends on D and C. Therefore you
-           must use beta_0_formula = 1.")
-    }
     if (tdm_family != "binomial") {
       warning("The beta_0_formula = 2 intercept is appropriate when the true
-              disease model is logistic regression, the outcome is rare, and
-              Z|(D, C) is normal. The tdm_family you selected is not logistic
-              regression, so, depending on your specific scenario, you may want
-              to re-run with beta_0_formula = 1.")
+              disease model is logistic regression and the outcome is rare. The
+              tdm_family you selected is not logistic regression, so, depending
+              on your specific scenario, you may want to re-run with
+              beta_0_formula = 1.")
     }
   }
 
@@ -182,22 +181,18 @@ rc_algebraic <- function(all_data = NULL,
   }
 
   # Fit naive TDM to get betastar.hat vector
-  tdm.naive.formula <- paste(paste(y_var, " ~ ", sep = ""),
-                             paste(c(d_var, c_vars, b_vars), collapse = " + "),
-                             sep = "")
-  tdm.naive.fit <- glm(tdm.naive.formula, data = all_data, family = tdm_family)
-  betastar.hat <- tdm.naive.fit$coef
+  naive.formula <- paste(paste(y_var, " ~ ", sep = ""),
+                         paste(c(d_var, c_vars, b_vars), collapse = " + "),
+                         sep = "")
+  naive.fit <- glm(naive.formula, data = all_data, family = tdm_family)
+  betastar.hat <- naive.fit$coef
 
   # Fit MEM using all available data to get alpha.hat vector
   mem.formula <- paste(paste(z_var, " ~ ", sep = ""),
                        paste(c(d_var, c_vars), collapse = " + "),
                        sep = "")
-  if (mem_family == "gaussian") {
-    mem.fit <- lm(mem.formula, data = all_data)
-    sigsq_delta.hat <- rev(anova(mem.fit)$"Mean Sq")[1]
-  } else {
-    mem.fit <- glm(mem.formula, data = all_data, family = mem_family)
-  }
+  mem.fit <- lm(mem.formula, data = all_data)
+  sigsq_delta.hat <- rev(anova(mem.fit)$"Mean Sq")[1]
   alpha.hat <- mem.fit$coef
 
   # Create labels for parameter estimates
@@ -207,98 +202,20 @@ rc_algebraic <- function(all_data = NULL,
   alpha.labels <- c("alpha_0", paste(rep("alpha_", 1 + kc),
                                      c(d_var, c_vars),
                                      sep = ""))
-  theta.labels <- c(beta.labels, alpha.labels)
+  theta.labels <- c(beta.labels, alpha.labels, "sigsq_delta")
 
-  # Obtain point estimates for theta and Delta method variance estimate,
-  # if requested.
+  # theta = (beta^T, alpha^T, sigsq_delta)^T = f(betastar, alpha, sigsq_delta)
+  f <- function(x) {
 
-  if (mem_family == "gaussian") {
+    # Extract betastar, alpha, and sigsq_delta
+    f.betastar <- x[1: length(betastar.hat)]
+    f.alpha <- x[(length(betastar.hat) + 1): (length(x) - 1)]
+    f.sigsq_delta <- x[length(x)]
 
-    # If MEM is linear regression, include sigsq_delta in theta
-    theta.labels <- c(theta.labels, "sigsq_delta")
+    # Calculate f.beta depending on value of beta_0_formula input
+    if (beta_0_formula == 1) {
 
-    # theta = (beta^T, alpha^T, sigsq_delta)^T =
-    # f(betastar, alpha, sigsq_delta)
-    f <- function(x) {
-
-      # Extract betastar, alpha, and sigsq_delta
-      f.betastar <- x[1: length(betastar.hat)]
-      f.alpha <- x[(length(betastar.hat) + 1): (length(x) - 1)]
-      f.sigsq_delta <- x[length(x)]
-
-      # Calculate f.beta depending on value of beta_0_formula input
-      if (beta_0_formula == 1) {
-
-        # beta_0 = betastar_0 - alpha_0 beta_Z
-
-        # Construct A matrix
-        f.A <- cbind(c(1, rep(0, 1 + kc + kb)),
-                     c(f.alpha, rep(0, kb)),
-                     rbind(matrix(0, nrow = 2, ncol = kc + kb), diag(kc + kb)))
-
-        # Calculate beta = A^(-1) betastar
-        f.beta <- solve(f.A) %*% f.betastar
-
-      } else if (beta_0_formula == 2) {
-
-        # beta_0 = betastar_0 - alpha_0 beta_Z - 1/2 beta_Z^2 sigsq_delta
-
-        # Construct A matrix
-        f.A <- cbind(c(f.alpha[-1], rep(0, kb)),
-                     rbind(matrix(0, nrow = 1, ncol = kc + kb), diag(kc + kb)))
-
-        # Calculate (beta_Z, beta_C^T, beta_B^T) = A^(-1) betastar[-1]
-        f.beta.nointercept <- solve(f.A) %*% f.betastar[-1]
-
-        # Calculate beta_0
-        f.beta_Z <- f.beta.nointercept[1]
-        f.beta_0 <- f.betastar[1] - f.alpha[1] * f.beta_Z -
-          1/2 * f.beta_Z^2 * f.sigsq_delta
-
-        # Construct beta = (beta_0, beta_Z, beta_C^T, beta_B^T)
-        f.beta <- c(f.beta_0, f.beta_Z, f.beta.nointercept)
-
-      }
-
-      # Return theta = (beta^T, alpha^T, sigsq_delta)^T
-      f.theta <- c(f.beta, f.alpha, f.sigsq_delta)
-      return(f.theta)
-
-    }
-
-    # Obtain point estimate for theta, and add to ret.list
-    theta.hat <- f(c(betastar.hat, alpha.hat, sigsq_delta.hat))
-    names(theta.hat) <- theta.labels
-    ret.list <- list(theta.hat = theta.hat)
-
-    # Calculate Delta-method variance estimate, if requested
-    if (delta_var) {
-
-      # Estimate f'(betastar.hat, alpha.hat, sigsq_delta)
-      fprime <- jacobian(func = f,
-                         x = c(betastar.hat, alpha.hat, sigsq_delta.hat))
-
-      # Construct V.hat(betastar.hat, alpha.hat, sigsq_delta.hat)
-      Sigma <- bdiag(vcov(tdm.naive.fit), vcov(mem.fit),
-                     2 * sigsq_delta.hat^2 / mem.fit$df.residual)
-
-      # Calculate f'(.) V(.) f'(.)^T
-      delta.variance <- as.matrix(fprime %*% Sigma %*% t(fprime))
-
-      # Attach labels and add to ret.list
-      colnames(delta.variance) <- rownames(delta.variance) <- theta.labels
-      ret.list$delta.var <- delta.variance
-
-    }
-
-  } else {
-
-    # theta = (beta^T, alpha^T)^T = f(betastar, alpha)
-    f <- function(x) {
-
-      # Extract betastar and alpha
-      f.betastar <- x[1: length(betastar.hat)]
-      f.alpha <- x[(length(betastar.hat) + 1): length(x)]
+      # beta_0 = betastar_0 - alpha_0 beta_Z
 
       # Construct A matrix
       f.A <- cbind(c(1, rep(0, 1 + kc + kb)),
@@ -308,34 +225,55 @@ rc_algebraic <- function(all_data = NULL,
       # Calculate beta = A^(-1) betastar
       f.beta <- solve(f.A) %*% f.betastar
 
-      # Return theta = (beta^T, alpha^T)^T
-      f.theta <- c(f.beta, f.alpha)
-      return(f.theta)
+    } else if (beta_0_formula == 2) {
+
+      # beta_0 = betastar_0 - alpha_0 beta_Z - 1/2 beta_Z^2 sigsq_delta
+
+      # Construct A matrix
+      f.A <- cbind(c(f.alpha[-1], rep(0, kb)),
+                   rbind(matrix(0, nrow = 1, ncol = kc + kb), diag(kc + kb)))
+
+      # Calculate (beta_Z, beta_C^T, beta_B^T) = A^(-1) betastar[-1]
+      f.beta.nointercept <- solve(f.A) %*% f.betastar[-1]
+
+      # Calculate beta_0
+      f.beta_Z <- f.beta.nointercept[1]
+      f.beta_0 <- f.betastar[1] - f.alpha[1] * f.beta_Z -
+        1/2 * f.beta_Z^2 * f.sigsq_delta
+
+      # Construct beta = (beta_0, beta_Z, beta_C^T, beta_B^T)
+      f.beta <- c(f.beta_0, f.beta_Z, f.beta.nointercept)
 
     }
 
-    # Obtain point estimate for theta, and add to ret.list
-    theta.hat <- f(c(betastar.hat, alpha.hat))
-    names(theta.hat) <- theta.labels
-    ret.list <- list(theta.hat = theta.hat)
+    # Return theta = (beta^T, alpha^T, sigsq_delta)^T
+    f.theta <- c(f.beta, f.alpha, f.sigsq_delta)
+    return(f.theta)
 
-    # Calculate Delta-method variance estimate, if requested
-    if (delta_var) {
+  }
 
-      # Estimate f'(betastar.hat, alpha.hat)
-      fprime <- jacobian(func = f, x = c(betastar.hat, alpha.hat))
+  # Obtain point estimate for theta, and add to ret.list
+  theta.hat <- f(c(betastar.hat, alpha.hat, sigsq_delta.hat))
+  names(theta.hat) <- theta.labels
+  ret.list <- list(theta.hat = theta.hat)
 
-      # Construct V.hat(betastar.hat, alpha.hat)
-      Sigma <- bdiag(vcov(tdm.naive.fit), vcov(mem.fit))
+  # Calculate Delta-method variance estimate, if requested
+  if (delta_var) {
 
-      # Calculate f'(.) V(.) f'(.)^T
-      delta.variance <- as.matrix(fprime %*% Sigma %*% t(fprime))
+    # Estimate f'(betastar.hat, alpha.hat, sigsq_delta)
+    fprime <- jacobian(func = f,
+                       x = c(betastar.hat, alpha.hat, sigsq_delta.hat))
 
-      # Attach labels and add to ret.list
-      colnames(delta.variance) <- rownames(delta.variance) <- theta.labels
-      ret.list$delta.var <- delta.variance
+    # Construct V.hat(betastar.hat, alpha.hat, sigsq_delta.hat)
+    Sigma <- bdiag(vcov(naive.fit), vcov(mem.fit),
+                   2 * sigsq_delta.hat^2 / mem.fit$df.residual)
 
-    }
+    # Calculate f'(.) V(.) f'(.)^T
+    delta.variance <- as.matrix(fprime %*% Sigma %*% t(fprime))
+
+    # Attach labels and add to ret.list
+    colnames(delta.variance) <- rownames(delta.variance) <- theta.labels
+    ret.list$delta.var <- delta.variance
 
   }
 
@@ -343,17 +281,9 @@ rc_algebraic <- function(all_data = NULL,
   if (boot_var) {
 
     # Various data types
-    locs.main <-
-      which(is.na(all_data[, z_var]) &
-              complete.cases(all_data[, c(y_var, d_var, c_vars, b_vars)]))
-    locs.internal <-
-      which(complete.cases(all_data[, c(y_var, z_var, d_var, c_vars, b_vars)]))
-    locs.external <-
-      which(is.na(all_data[, y_var]) &
-              complete.cases(all_data[, c(z_var, d_var, c_vars)]))
-    n.main <- length(locs.main)
-    n.internal <- length(locs.internal)
-    n.external <- length(locs.external)
+    locs.m <- which(! is.na(all_data[, y_var]) & is.na(all_data[, z_var]))
+    locs.i <- which(! is.na(all_data[, y_var]) & ! is.na(all_data[, z_var]))
+    locs.e <- which(is.na(all_data[, y_var]) & ! is.na(all_data[, z_var]))
 
     # Initialize matrix for theta estimates
     theta.hat.boots <- matrix(NA, ncol = length(theta.hat), nrow = boots)
@@ -361,22 +291,17 @@ rc_algebraic <- function(all_data = NULL,
     # Bootstrap
     for (ii in 1: boots) {
 
-      locs.main.sampled <- sample(locs.main, replace = TRUE)
-      locs.internal.sampled <- sample(locs.internal, replace = TRUE)
-      locs.external.sampled <- sample(locs.external, replace = TRUE)
-
-      all_data.boot <- all_data[c(locs.main.sampled,
-                                  locs.internal.sampled,
-                                  locs.external.sampled), ]
-
-      theta.hat.boots[ii, ] <- rc_algebraic(all_data = all_data.boot,
-                                            y_var = y_var,
-                                            z_var = z_var,
-                                            d_var = d_var,
-                                            c_vars = c_vars,
-                                            b_vars = b_vars,
-                                            tdm_family = tdm_family,
-                                            mem_family = mem_family)
+      theta.hat.boots[ii, ] <- rc_algebraic(
+        all_data = all_data[c(sample(locs.m, replace = TRUE),
+                              sample(locs.i, replace = TRUE),
+                              sample(locs.e, replace = TRUE)), ],
+        y_var = y_var,
+        z_var = z_var,
+        d_var = d_var,
+        c_vars = c_vars,
+        b_vars = b_vars,
+        tdm_family = tdm_family,
+        beta_0_formula = beta_0_formula)
 
     }
 

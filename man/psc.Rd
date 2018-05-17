@@ -6,7 +6,8 @@
 \usage{
 psc(all_data = NULL, main = NULL, internal = NULL, external = NULL,
   y_var, x_var, gs_vars, ep_vars, tdm_family = "gaussian", surrogacy = TRUE,
-  weighted = FALSE, ep_refit = FALSE)
+  ep_data = "validation", all_imputed = FALSE, boot_var = FALSE,
+  boots = 100)
 }
 \arguments{
 \item{all_data}{Data frame with data for main study and validation study.}
@@ -32,8 +33,23 @@ propensity score.}
 
 \item{surrogacy}{Logical value for whether to assume surrogacy, which means
 that the error-prone propensity score is not informative of Y given X and the
-gold standard propensity score. If validation data is external, have to
-assume surrogacy.}
+gold standard propensity score. Have to assume surrogacy if validation data
+is external.}
+
+\item{ep_data}{Character string controlling what data is used to fit the
+error-prone propensity score model. Choices are \code{"validation"} for
+validation study data, \code{"all"} for main study and validation study data,
+and \code{"separate"} for validation data for first step and main study data
+for second step.}
+
+\item{all_imputed}{Logical value for whether to use imputed Z's for all
+subjects, even those with the actual Z's observed (i.e. internal validation
+subjects).}
+
+\item{boot_var}{Logical value for whether to calculate a bootstrap
+variance-covariance matrix.}
+
+\item{boots}{Numeric value specifying number of bootstrap samples to use.}
 }
 \description{
 Implements propensity score calibration as described by Sturmer et al.
