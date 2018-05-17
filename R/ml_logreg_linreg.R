@@ -13,7 +13,7 @@
 #' The measurement error model is:
 #'
 #' Z = alpha_0 + \strong{alpha_d}^T \strong{D} + \strong{alpha_c}^T \strong{C} +
-#' delta, delta ~ N(0, sigsq_delta)
+#' d, d ~ N(0, sigsq_d)
 #'
 #' There should be main study data with (Y, \strong{D}, \strong{C}, \strong{B})
 #' as well as internal validation data with
@@ -108,15 +108,15 @@ ml_logreg_linreg <- function(all_data = NULL,
   kb <- length(b_vars)
 
   # Get covariate lists
-  zdcb <- c(z_var, d_vars, c_vars, b_vars)
   dcb <- c(d_vars, c_vars, b_vars)
-  dc <- c(d_vars, c_vars)
+  zdcb <- c(z_var, d_vars, c_vars, b_vars)
+  zdc <- c(z_var, d_vars, c_vars)
 
   # Subset various data types
   if (! is.null(all_data)) {
     main <- all_data[complete.cases(all_data[, c(y_var, dcb)]) & is.na(all_data[, z_var]), ]
     internal <- all_data[complete.cases(all_data[, c(y_var, zdcb)]), ]
-    external <- all_data[is.na(all_data[, y_var]) & complete.cases(all_data[, dc]), ]
+    external <- all_data[is.na(all_data[, y_var]) & complete.cases(all_data[, zdc]), ]
   }
 
   n.m <- nrow(main)
@@ -140,7 +140,7 @@ ml_logreg_linreg <- function(all_data = NULL,
   some.e <- n.e > 0
   if (some.e) {
     z.e <- external[, z_var]
-    onedc.e <- as.matrix(cbind(rep(1, n.i), external[, c(d_vars, c_vars)]))
+    onedc.e <- as.matrix(cbind(rep(1, n.e), external[, c(d_vars, c_vars)]))
   }
 
   # Get number of betas and alphas
@@ -176,7 +176,7 @@ ml_logreg_linreg <- function(all_data = NULL,
         # P(Y|Z,C,B)
         p_y.zcb <- (1 + exp(-cb.term - beta_z * s))^(-1)
 
-        # f(Y,X,Xtilde|C) = f(Y|X,C) f(Xtilde|X) f(X|C)
+        # f(Y,Z|D,C,B) = f(Y|Z,C,B) f(Z|D,C)
         dbinom(y,
                size = 1,
                prob = p_y.zcb) *
@@ -235,7 +235,7 @@ ml_logreg_linreg <- function(all_data = NULL,
 
           # Perform integration
           int.ii <- cubature::hcubature(f = lf.full,
-                                        tol = integrate_tol,
+                                        tol = int.tol,
                                         lowerLimit = -1,
                                         upperLimit = 1,
                                         vectorInterface = TRUE,

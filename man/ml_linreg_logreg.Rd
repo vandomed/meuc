@@ -61,7 +61,7 @@ measurement error model is logistic regression.
 The true disease model is:
 
 Y = beta_0 + beta_z Z + \strong{beta_c}^T \strong{C} + \strong{beta_b}^T
-\strong{B} + epsilon, epsilon ~ N(0, sigsq_epsilon)
+\strong{B} + e, e ~ N(0, sigsq_e)
 
 The measurement error model is:
 

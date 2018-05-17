@@ -96,15 +96,15 @@ ml_logreg_logreg <- function(all_data = NULL,
   kb <- length(b_vars)
 
   # Get covariate lists
-  zdcb <- c(z_var, d_vars, c_vars, b_vars)
   dcb <- c(d_vars, c_vars, b_vars)
-  dc <- c(d_vars, c_vars)
+  zdcb <- c(z_var, d_vars, c_vars, b_vars)
+  zdc <- c(z_var, d_vars, c_vars)
 
   # Subset various data types
   if (! is.null(all_data)) {
     main <- all_data[complete.cases(all_data[, c(y_var, dcb)]) & is.na(all_data[, z_var]), ]
     internal <- all_data[complete.cases(all_data[, c(y_var, zdcb)]), ]
-    external <- all_data[is.na(all_data[, y_var]) & complete.cases(all_data[, dc]), ]
+    external <- all_data[is.na(all_data[, y_var]) & complete.cases(all_data[, zdc]), ]
   }
 
   n.m <- nrow(main)
@@ -128,7 +128,7 @@ ml_logreg_logreg <- function(all_data = NULL,
   some.e <- n.e > 0
   if (some.e) {
     z.e <- external[, z_var]
-    onedc.e <- as.matrix(cbind(rep(1, n.i), external[, c(d_vars, c_vars)]))
+    onedc.e <- as.matrix(cbind(rep(1, n.e), external[, c(d_vars, c_vars)]))
   }
 
   # Get number of betas and alphas

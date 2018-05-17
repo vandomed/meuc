@@ -2,6 +2,7 @@
 
 export(ml_linreg_linreg)
 export(ml_linreg_logreg)
+export(ml_linreg_logreg_linreg)
 export(ml_logreg_linreg)
 export(ml_logreg_logreg)
 export(psc)

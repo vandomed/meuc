@@ -61,12 +61,12 @@ are linear regressions. Requires validation data.
 The true disease model is:
 
 Y = beta_0 + beta_z Z + \strong{beta_c}^T \strong{C} + \strong{beta_b}^T
-\strong{B} + epsilon, epsilon ~ N(0, sigsq_epsilon)
+\strong{B} + e, e ~ N(0, sigsq_e)
 
 The measurement error model is:
 
 Z = alpha_0 + \strong{alpha_d}^T \strong{D} + \strong{alpha_c}^T \strong{C} +
-delta, delta ~ N(0, sigsq_delta)
+d, d ~ N(0, sigsq_d)
 
 There should be main study data with (Y, \strong{D}, \strong{C}, \strong{B})
 as well as internal validation data with
