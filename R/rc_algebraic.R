@@ -178,7 +178,7 @@ rc_algebraic <- function(all_data = NULL,
                        paste(c(d_var, c_vars), collapse = " + "),
                        sep = "")
   mem.fit <- lm(mem.formula, data = all_data)
-  sigsq_delta.hat <- rev(anova(mem.fit)$"Mean Sq")[1]
+  sigsq_d.hat <- rev(anova(mem.fit)$"Mean Sq")[1]
   alpha.hat <- mem.fit$coef
 
   # Create labels for parameter estimates
@@ -188,15 +188,15 @@ rc_algebraic <- function(all_data = NULL,
   alpha.labels <- c("alpha_0", paste(rep("alpha_", 1 + kc),
                                      c(d_var, c_vars),
                                      sep = ""))
-  theta.labels <- c(beta.labels, alpha.labels, "sigsq_delta")
+  theta.labels <- c(beta.labels, alpha.labels, "sigsq_d")
 
-  # theta = (beta^T, alpha^T, sigsq_delta)^T = f(betastar, alpha, sigsq_delta)
+  # theta = (beta^T, alpha^T, sigsq_d)^T = f(betastar, alpha, sigsq_d)
   f <- function(x) {
 
-    # Extract betastar, alpha, and sigsq_delta
+    # Extract betastar, alpha, and sigsq_d
     f.betastar <- x[1: length(betastar.hat)]
     f.alpha <- x[(length(betastar.hat) + 1): (length(x) - 1)]
-    f.sigsq_delta <- x[length(x)]
+    f.sigsq_d <- x[length(x)]
 
     # Calculate f.beta depending on value of beta_0_formula input
     if (beta_0_formula == 1) {
@@ -213,7 +213,7 @@ rc_algebraic <- function(all_data = NULL,
 
     } else if (beta_0_formula == 2) {
 
-      # beta_0 = betastar_0 - alpha_0 beta_Z - 1/2 beta_Z^2 sigsq_delta
+      # beta_0 = betastar_0 - alpha_0 beta_Z - 1/2 beta_Z^2 sigsq_d
 
       # Construct A matrix
       f.A <- cbind(c(f.alpha[-1], rep(0, kb)),
@@ -225,34 +225,34 @@ rc_algebraic <- function(all_data = NULL,
       # Calculate beta_0
       f.beta_Z <- f.beta.nointercept[1]
       f.beta_0 <- f.betastar[1] - f.alpha[1] * f.beta_Z -
-        1/2 * f.beta_Z^2 * f.sigsq_delta
+        1/2 * f.beta_Z^2 * f.sigsq_d
 
       # Construct beta = (beta_0, beta_Z, beta_C^T, beta_B^T)
       f.beta <- c(f.beta_0, f.beta_Z, f.beta.nointercept)
 
     }
 
-    # Return theta = (beta^T, alpha^T, sigsq_delta)^T
-    f.theta <- c(f.beta, f.alpha, f.sigsq_delta)
+    # Return theta = (beta^T, alpha^T, sigsq_d)^T
+    f.theta <- c(f.beta, f.alpha, f.sigsq_d)
     return(f.theta)
 
   }
 
   # Obtain point estimate for theta, and add to ret.list
-  theta.hat <- f(c(betastar.hat, alpha.hat, sigsq_delta.hat))
+  theta.hat <- f(c(betastar.hat, alpha.hat, sigsq_d.hat))
   names(theta.hat) <- theta.labels
   ret.list <- list(theta.hat = theta.hat)
 
   # Calculate Delta-method variance estimate, if requested
   if (delta_var) {
 
-    # Estimate f'(betastar.hat, alpha.hat, sigsq_delta)
+    # Estimate f'(betastar.hat, alpha.hat, sigsq_d)
     fprime <- jacobian(func = f,
-                       x = c(betastar.hat, alpha.hat, sigsq_delta.hat))
+                       x = c(betastar.hat, alpha.hat, sigsq_d.hat))
 
-    # Construct V.hat(betastar.hat, alpha.hat, sigsq_delta.hat)
+    # Construct V.hat(betastar.hat, alpha.hat, sigsq_d.hat)
     Sigma <- bdiag(vcov(naive.fit), vcov(mem.fit),
-                   2 * sigsq_delta.hat^2 / mem.fit$df.residual)
+                   2 * sigsq_d.hat^2 / mem.fit$df.residual)
 
     # Calculate f'(.) V(.) f'(.)^T
     delta.variance <- as.matrix(fprime %*% Sigma %*% t(fprime))
@@ -267,9 +267,11 @@ rc_algebraic <- function(all_data = NULL,
   if (boot_var) {
 
     # Various data types
-    locs.m <- which(! is.na(all_data[, y_var]) & is.na(all_data[, z_var]))
-    locs.i <- which(! is.na(all_data[, y_var]) & ! is.na(all_data[, z_var]))
-    locs.e <- which(is.na(all_data[, y_var]) & ! is.na(all_data[, z_var]))
+    locs.m <- which(complete.cases(all_data[, c(y_var, mem_covariates)]) &
+                      is.na(all_data[, z_var]))
+    locs.i <- which(complete.cases(all_data[, c(y_var, covariates)]))
+    locs.e <- which(complete.cases(all_data[, c(z_var, mem_covariates)]) &
+                      is.na(all_data[, y_var]))
 
     # Initialize matrix for theta estimates
     theta.hat.boots <- matrix(NA, ncol = length(theta.hat), nrow = boots)

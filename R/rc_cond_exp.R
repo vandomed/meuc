@@ -11,7 +11,8 @@
 #'
 #' The measurement error model is:
 #'
-#' h[E(Z)] = \strong{alpha_d}^T \strong{D} + \strong{alpha_c}^T \strong{C}
+#' h[E(Z)] = alpha_0 + \strong{alpha_d}^T \strong{D} + \strong{alpha_c}^T
+#' \strong{C}
 #'
 #' The procedure is as follows: in the validation study, fit the measurement
 #' error model to estimate alpha's; in the main study, calculate
@@ -176,14 +177,14 @@ rc_cond_exp <- function(all_data = NULL,
   }
 
   # Store original all_data data frame
-  all_data_original <- all_data
+  all_data_o <- all_data
 
   # Fit MEM using all available data
   mem.formula <- paste(paste(z_var, " ~ ", sep = ""),
                        paste(mem_covariates, collapse = " + "), sep = "")
   if (mem_family == "gaussian") {
     mem.fit <- lm(mem.formula, data = all_data)
-    sigsq_delta.hat <- rev(anova(mem.fit)$"Mean Sq")[1]
+    sigsq_d.hat <- rev(anova(mem.fit)$"Mean Sq")[1]
   } else {
     mem.fit <- glm(mem.formula, data = all_data, family = mem_family)
   }
@@ -219,9 +220,9 @@ rc_cond_exp <- function(all_data = NULL,
   # Extract point estimates for theta
   if (mem_family == "gaussian") {
 
-    # theta = (beta^T, alpha^T, sigsq_delta)^T
-    theta.hat <- c(tdm.fit$coef, mem.fit$coef, sigsq_delta.hat)
-    theta.labels <- c(theta.labels, "sigsq_delta")
+    # theta = (beta^T, alpha^T, sigsq_d)^T
+    theta.hat <- c(tdm.fit$coef, mem.fit$coef, sigsq_d.hat)
+    theta.labels <- c(theta.labels, "sigsq_d")
     names(theta.hat) <- theta.labels
 
   } else {
@@ -239,9 +240,11 @@ rc_cond_exp <- function(all_data = NULL,
   if (boot_var) {
 
     # Various data types
-    locs.m <- which(! is.na(all_data[, y_var]) & is.na(all_data[, z_var]))
-    locs.i <- which(! is.na(all_data[, y_var]) & ! is.na(all_data[, z_var]))
-    locs.e <- which(is.na(all_data[, y_var]) & ! is.na(all_data[, z_var]))
+    locs.m <- which(complete.cases(all_data_o[, c(y_var, mem_covariates)]) &
+                      is.na(all_data_o[, z_var]))
+    locs.i <- which(complete.cases(all_data_o[, c(y_var, covariates)]))
+    locs.e <- which(complete.cases(all_data_o[, c(z_var, mem_covariates)]) &
+                      is.na(all_data_o[, y_var]))
 
     # Initialize matrix for theta estimates
     theta.hat.boots <- matrix(NA, ncol = length(theta.hat), nrow = boots)
@@ -250,9 +253,9 @@ rc_cond_exp <- function(all_data = NULL,
     for (ii in 1: boots) {
 
       theta.hat.boots[ii, ] <- rc_cond_exp(
-        all_data = all_data[c(sample(locs.m, replace = TRUE),
-                              sample(locs.i, replace = TRUE),
-                              sample(locs.e, replace = TRUE)), ],
+        all_data = all_data_o[c(sample(locs.m, replace = TRUE),
+                                sample(locs.i, replace = TRUE),
+                                sample(locs.e, replace = TRUE)), ],
         y_var = y_var,
         z_var = z_var,
         tdm_covariates = tdm_covariates,
