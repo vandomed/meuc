@@ -32,7 +32,6 @@
 #'
 #'
 #' @export
-
 # # Data for testing
 # n.m <- 50000
 # n.e <- 50000
@@ -141,13 +140,14 @@ rc_cond_exp_loglinear <- function(all_data = NULL,
   # Replace all or just missing Z's with Zhat's, depending on all_imputed input
   if (all_imputed) {
 
-    all_data[, z_var] <- predict(mem.fit, newdata = all_data, type = "response")
+    mu_logz <- predict(mem.fit, newdata = all_data, type = "response")
+    all_data[, z_var] <- exp(mu_logz + sigsq_delta.hat / 2)
 
   } else {
 
     locs.missingz <- which(is.na(all_data[, z_var]))
-    all_data[locs.missingz, z_var] <-
-      predict(mem.fit, newdata = all_data[locs.missingz, ], type = "response")
+    mu_logz <- predict(mem.fit, newdata = all_data[locs.missingz, ], type = "response")
+    all_data[locs.missingz, z_var] <- exp(mu_logz + sigsq_delta.hat / 2)
 
   }
 
@@ -202,10 +202,14 @@ rc_cond_exp_loglinear <- function(all_data = NULL,
 
     }
 
-    # Calculate bootstrap variance estimate and add it to ret.list
+    # Calculate bootstrap variance estimates
     boot.variance <- var(theta.hat.boots)
     rownames(boot.variance) <- colnames(boot.variance) <- theta.labels
     ret.list$boot.var <- boot.variance
+
+    boot.ci <- apply(theta.hat.boots, 2, function(x) quantile(x, probs = c(0.025, 0.975)))
+    colnames(boot.ci) <- theta.labels
+    ret.list$boot.ci <- boot.ci
 
   }
 

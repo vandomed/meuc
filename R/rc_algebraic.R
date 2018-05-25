@@ -110,7 +110,7 @@ rc_algebraic <- function(all_data = NULL,
                          tdm_family = "gaussian",
                          mem_covariates = NULL,
                          beta_0_formula = 1,
-                         delta_var = FALSE,
+                         delta_var = TRUE,
                          boot_var = FALSE, boots = 100) {
 
   # If beta_0_formula = 2, check that it is reasonable
@@ -228,7 +228,7 @@ rc_algebraic <- function(all_data = NULL,
         1/2 * f.beta_Z^2 * f.sigsq_d
 
       # Construct beta = (beta_0, beta_Z, beta_C^T, beta_B^T)
-      f.beta <- c(f.beta_0, f.beta_Z, f.beta.nointercept)
+      f.beta <- c(f.beta_0, f.beta.nointercept)
 
     }
 
@@ -293,10 +293,14 @@ rc_algebraic <- function(all_data = NULL,
 
     }
 
-    # Calculate bootstrap variance estimate and add it to ret.list
+    # Calculate bootstrap variance estimates
     boot.variance <- var(theta.hat.boots)
     rownames(boot.variance) <- colnames(boot.variance) <- theta.labels
     ret.list$boot.var <- boot.variance
+
+    boot.ci <- apply(theta.hat.boots, 2, function(x) quantile(x, probs = c(0.025, 0.975)))
+    colnames(boot.ci) <- theta.labels
+    ret.list$boot.ci <- boot.ci
 
   }
 

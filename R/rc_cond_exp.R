@@ -47,8 +47,9 @@
 #'
 #'
 #' @return
-#' If \code{boot_var = TRUE}, list containing parameter estimates and
-#' variance-covariance matrix; otherwise just the parameter estimates.
+#' If \code{boot_var = TRUE}, list containing parameter estimates,
+#' variance-covariance matrix, and percentile bootstrap confidence intervals;
+#' otherwise just the parameter estimates.
 #'
 #'
 #' @references
@@ -266,10 +267,14 @@ rc_cond_exp <- function(all_data = NULL,
 
     }
 
-    # Calculate bootstrap variance estimate and add it to ret.list
+    # Calculate bootstrap variance estimates
     boot.variance <- var(theta.hat.boots)
     rownames(boot.variance) <- colnames(boot.variance) <- theta.labels
     ret.list$boot.var <- boot.variance
+
+    boot.ci <- apply(theta.hat.boots, 2, function(x) quantile(x, probs = c(0.025, 0.975)))
+    colnames(boot.ci) <- theta.labels
+    ret.list$boot.ci <- boot.ci
 
   }
 

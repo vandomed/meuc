@@ -53,8 +53,9 @@ variance-covariance matrix.}
 \item{boots}{Numeric value specifying number of bootstrap samples to use.}
 }
 \value{
-If \code{boot_var = TRUE}, list containing parameter estimates and
-variance-covariance matrix; otherwise just the parameter estimates.
+If \code{boot_var = TRUE}, list containing parameter estimates,
+variance-covariance matrix, and percentile bootstrap confidence intervals;
+otherwise just the parameter estimates.
 }
 \description{
 Implements the "conditional expectation" version of regression calibration as

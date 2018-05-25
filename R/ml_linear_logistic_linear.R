@@ -117,39 +117,39 @@ ml_linear_logistic_linear <- function(all_data = NULL,
     external <- all_data[is.na(all_data[, y_var]) & complete.cases(all_data[, xzdc]), ]
   }
 
-  n.m <- nrow(main)
+  n.m <- ifelse(is.null(main), 0, nrow(main))
   some.m <- n.m > 0
   if (some.m) {
     y.m <- main[, y_var]
     x.m <- main[, x_var]
     onexcb.m <- as.matrix(cbind(rep(1, n.m), main[, c(x_var, c_vars, b_vars)]))
-    onecb.m <- as.matrix(cbind(rep(1, n.m), main[, c(c_vars, b_vars)]))
+    onedcb.m <- as.matrix(cbind(rep(1, n.m), main[, c(d_vars, c_vars, b_vars)]))
     onedc.m <- as.matrix(cbind(rep(1, n.m), main[, c(d_vars, c_vars)]))
   }
 
-  n.i <- nrow(internal)
+  n.i <- ifelse(is.null(internal), 0, nrow(internal))
   some.i <- n.i > 0
   if (some.i) {
     y.i <- internal[, y_var]
     x.i <- internal[, x_var]
     z.i <- internal[, z_var]
     onexzcb.i <- as.matrix(cbind(rep(1, n.i), internal[, c(x_var, z_var, c_vars, b_vars)]))
-    onezcb.i <- as.matrix(cbind(rep(1, n.i), internal[, c(z_var, c_vars, b_vars)]))
+    onezdcb.i <- as.matrix(cbind(rep(1, n.i), internal[, c(z_var, d_vars, c_vars, b_vars)]))
     onedc.i <- as.matrix(cbind(rep(1, n.i), internal[, c(d_vars, c_vars)]))
   }
 
-  n.e <- nrow(external)
+  n.e <- ifelse(is.null(external), 0, nrow(external))
   some.e <- n.e > 0
   if (some.e) {
     x.e <- external[, x_var]
     z.e <- external[, z_var]
-    onezcb.e <- as.matrix(cbind(rep(1, n.e), external[, c(z_var, c_vars, b_vars)]))
+    onezdcb.e <- as.matrix(cbind(rep(1, n.e), external[, c(z_var, d_vars, c_vars, b_vars)]))
     onedc.e <- as.matrix(cbind(rep(1, n.e), external[, c(d_vars, c_vars)]))
   }
 
   # Get number of betas, gammas, and alphas
   n.betas <- 3 + kc + kb
-  n.gammas <- 2 + kc + kb
+  n.gammas <- 2 + kd + kc + kb
   n.alphas <- 1 + kd + kc
 
   # Get indices for parameters being estimated and create labels
@@ -157,7 +157,7 @@ ml_linear_logistic_linear <- function(all_data = NULL,
   beta.labels <- paste("beta", c("0", x_var, z_var, c_vars, b_vars), sep = "_")
 
   loc.gammas <- (n.betas + 1): (n.betas + n.gammas)
-  gamma.labels <- paste("gamma", c("0", z_var, c_vars, b_vars), sep = "_")
+  gamma.labels <- paste("gamma", c("0", z_var, d_vars, c_vars, b_vars), sep = "_")
 
   loc.alphas <- (n.betas + n.gammas + 1): (n.betas + n.gammas + n.alphas)
   alpha.labels <- paste("alpha", c("0", d_vars, c_vars), sep = "_")
@@ -178,7 +178,7 @@ ml_linear_logistic_linear <- function(all_data = NULL,
                         beta_z,
                         gamma_z,
                         xcb.term,
-                        cb.term
+                        dcb.term
                         ) {
 
       z <- matrix(z, nrow = 1)
@@ -190,12 +190,12 @@ ml_linear_logistic_linear <- function(all_data = NULL,
         # E(Y|X,Z,C,B)
         mu_y.xzcb <- xcb.term + beta_z * s
 
-        # P(X=1|Z,C,B)
-        p_x.zcb <- (1 + exp(-cb.term - gamma_z * s))^(-1)
+        # P(X=1|Z,D,C,B)
+        p_x.zdcb <- (1 + exp(-dcb.term - gamma_z * s))^(-1)
 
-        # f(Y,X,Z|D,C,B) = f(Y|X,Z,C,B) P(X=x|Z,C,B) f(Z|D,C)
+        # f(Y,X,Z|D,C,B) = f(Y|X,Z,C,B) P(X=x|Z,D,C,B) f(Z|D,C)
         dnorm(y, mean = mu_y.xzcb, sd = sqrt(sigsq_e)) *
-          dbinom(x, size = 1, prob = p_x.zcb) *
+          dbinom(x, size = 1, prob = p_x.zdcb) *
           dnorm(s, mean = mu_z.dc, sd = sqrt(sigsq_d))
 
       })
@@ -212,7 +212,7 @@ ml_linear_logistic_linear <- function(all_data = NULL,
 
     # Extract parameters
     f.betas <- matrix(f.theta[loc.betas], ncol = 1)
-    f.beta_z <- f.betas[2]
+    f.beta_z <- f.betas[3]
 
     f.gammas <- matrix(f.theta[loc.gammas], ncol = 1)
     f.gamma_z <- f.gammas[2]
@@ -225,14 +225,14 @@ ml_linear_logistic_linear <- function(all_data = NULL,
     if (some.m) {
 
       # Likelihood for main study subjects:
-      # L = \int_z f(Y|Z,C,B) P(X=x|Z,C,B) f(Z|D,C) dZ
+      # L = \int_z f(Y|Z,C,B) P(X=x|Z,D,C,B) f(Z|D,C) dZ
 
       # Get integration tolerance
       int.tol <- ifelse(estimating.hessian, integrate_tol_hessian, integrate_tol)
 
       # Terms for integral
-      xcb.terms <- onexcb.m %*% f.betas[-2]
-      cb.terms <- onecb.m %*% f.gammas[-2]
+      xcb.terms <- onexcb.m %*% f.betas[-3]
+      dcb.terms <- onedcb.m %*% f.gammas[-2]
       mu_z.dc <- onedc.m %*% f.alphas
 
       int.vals <- c()
@@ -252,7 +252,7 @@ ml_linear_logistic_linear <- function(all_data = NULL,
                                       beta_z = f.beta_z,
                                       gamma_z = f.gamma_z,
                                       xcb.term = xcb.terms[ii],
-                                      cb.term = cb.terms[ii])
+                                      dcb.term = dcb.terms[ii])
         int.vals[ii] <- int.ii$integral
         if (int.ii$integral == 0) {
           print(paste("Integral is 0 for ii = ", ii, sep = ""))
@@ -271,13 +271,13 @@ ml_linear_logistic_linear <- function(all_data = NULL,
     if (some.i) {
 
       # Likelihood for internal validation subjects:
-      # L = f(Y|X,Z,C,B) P(X=x|Z,C,B) f(Z|D,C)
+      # L = f(Y|X,Z,C,B) P(X=x|Z,D,C,B) f(Z|D,C)
       ll.i <- sum(
         dnorm(y.i, log = TRUE,
               mean = onexzcb.i %*% f.betas,
               sd = sqrt(f.sigsq_e)) +
           dbinom(x.i, log = TRUE, size = 1,
-                 prob = (1 + exp(-onezcb.i %*% f.gammas))^(-1)) +
+                 prob = (1 + exp(-onezdcb.i %*% f.gammas))^(-1)) +
           dnorm(z.i, log = TRUE,
                 mean = onedc.i %*% f.alphas, sd = sqrt(f.sigsq_d))
       )
@@ -289,10 +289,10 @@ ml_linear_logistic_linear <- function(all_data = NULL,
     if (some.e) {
 
       # Likelihood for external validation subjects:
-      # L = P(X=x|Z,C,B) f(Z|D,C)
+      # L = P(X=x|Z,D,C,B) f(Z|D,C)
       ll.e <- sum(
         dbinom(x.e, log = TRUE, size = 1,
-               prob = (1 + exp(-onezcb.e %*% f.gammas))^(-1)) +
+               prob = (1 + exp(-onezdcb.e %*% f.gammas))^(-1)) +
           dnorm(z.e, log = TRUE,
                 mean = onedc.e %*% f.alphas, sd = sqrt(f.sigsq_d))
       )

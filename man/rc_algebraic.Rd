@@ -7,7 +7,7 @@
 rc_algebraic(all_data = NULL, main = NULL, internal = NULL,
   external = NULL, y_var, z_var, d_var = NULL, c_vars = NULL,
   b_vars = NULL, tdm_covariates = NULL, tdm_family = "gaussian",
-  mem_covariates = NULL, beta_0_formula = 1, delta_var = FALSE,
+  mem_covariates = NULL, beta_0_formula = 1, delta_var = TRUE,
   boot_var = FALSE, boots = 100)
 }
 \arguments{

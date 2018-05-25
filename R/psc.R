@@ -210,10 +210,14 @@ psc <- function(all_data = NULL,
 
     }
 
-    # Calculate bootstrap variance estimate and add it to ret.list
+    # Calculate bootstrap variance estimates
     boot.variance <- var(beta.hat.boots)
     rownames(boot.variance) <- colnames(boot.variance) <- beta.labels
     ret.list$boot.var <- boot.variance
+
+    boot.ci <- apply(beta.hat.boots, 2, function(x) quantile(x, probs = c(0.025, 0.975)))
+    colnames(boot.ci) <- beta.labels
+    ret.list$boot.ci <- boot.ci
 
   }
 
