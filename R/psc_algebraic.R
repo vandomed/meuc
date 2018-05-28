@@ -159,6 +159,7 @@ psc_algebraic <- function(all_data = NULL,
     z_var = "g",
     d_var = "gstar",
     c_vars = x_var,
+    tdm_family = tdm_family,
     delta_var = delta_var
   )
   return(fit.rc)
