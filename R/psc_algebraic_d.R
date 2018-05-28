@@ -1,47 +1,35 @@
-#' Propensity Score Calibration (Algebraic Method)
+#' Propensity Score Calibration with Extra Surrogate Variable
 #'
 #' Implements propensity score calibration as described by Sturmer et al.
-#' (\emph{Am. J. Epidemiol.} 2005). Requires validation data.
+#' (\emph{Am. J. Epidemiol.} 2005), but using separate surrogate variable D to
+#' avoid having to assume error-prone propensity score is uninformative of
+#' outcome.
 #'
 #' The true disease model is a GLM:
 #'
-#' g[E(Y)] = beta_0 + beta_x X + beta_g G
+#' g[E(Y)] = beta_0 + beta_x X + beta_g G + beta_gstar Gstar
 #'
-#' where G = P(X|\strong{Z},\strong{C}), with \strong{C} but not \strong{Z}
-#' available in the main study. Logistic regression models are used to model
-#' P(X = 1|\strong{Z},\strong{C}) and P(X = 1|\strong{C}):
+#' where G = P(X|\strong{C},\strong{Z}), with \strong{C} but not \strong{Z}
+#' available in the main study, and Gstar = P(X|\strong{C}). Logistic regression
+#' models are used to model P(X = 1|\strong{Z},\strong{C}) and
+#' P(X = 1|\strong{C}):
 #'
 #' logit[P(X = 1)] = gamma_0 + \strong{gamma_z}^T \strong{Z} +
 #' \strong{gamma_c}^T \strong{C}
 #' logit[P(X = 1)] = gamma_0^* + \strong{gamma_c}^*T \strong{C}
 #'
-#' A linear model is used to map fitted error-prone propensity scores Gstar
-#' (from the X|\strong{C} logistic regression) to the expected gold standard
-#' propensity score G (from the X|(\strong{C},\strong{Z}) logistic regression):
+#' A linear model is used to map fitted error-prone propensity scores Gstar to
+#' the expected gold standard propensity score G logistic regression):
 #'
-#' E(G) = lambda_0 + lambda_x X + lambda_g Gstar
+#' E(G) = lambda_0 + lambda_d D + lambda_x X + lambda_g Gstar
 #'
 #' There should be main study data with
-#' (Y, X, \strong{C}) as well as external validation data with
-#' (X, \strong{C}, \strong{Z}).
+#' (Y, X, D, \strong{C}) as well as external validation data with
+#' (X, D, \strong{C}, \strong{Z}).
 #'
 #'
-#' @inheritParams rc_cond_exp
-#'
-#' @param x_var Character string specifying name of X variable.
-#' @param gs_vars Character vector specifying names of variables for gold
-#' standard propensity score.
-#' @param ep_vars Character vector specifying names of variables for error-prone
-#' propensity score.
-#' @param ep_data Character string controlling what data is used to fit the
-#' error-prone propensity score model. Choices are \code{"validation"} for
-#' validation study data, \code{"all"} for main study and validation study data,
-#' and \code{"separate"} for validation data for first step and main study data
-#' for second step.
-#' @param delta_var Logical value for whether to calculate a Delta method
-#' variance-covariance matrix. May not be justified theoretically because
-#' propensity scores are estimated, but also may perform better than bootstrap
-#' in certain scenarios, e.g. if bootstrap is prone to extreme estimates.
+#' @inheritParams psc_algebraic
+#' @param d_var Character string specifying name of D variable.
 #'
 #'
 #' @references
@@ -62,42 +50,46 @@
 # sigsq_e <- 0.5
 #
 # c <- rnorm(n)
-# z <- rnorm(n)
+# d <- rnorm(n)
+# z <- 0.25 + 0.2 * d + rnorm(n, sd = sqrt(1))
 # x <- rbinom(n, size = 1, prob = (1 + exp(-gammas[1] - gammas[2] * z - gammas[3] * c))^(-1))
 # y <- betas[1] + betas[2] * x + betas[3] * z + betas[4] * c + rnorm(n, sd = sqrt(sigsq_e))
 #
-# all_data <- data.frame(y = y, x = x, z = z, c = c)
+# all_data <- data.frame(y = y, x = x, z = z, d = d, c = c)
 # all_data[1: n.e, 1] <- NA
 # all_data[(n.e + 1): n, 3] <- NA
 # main <- internal <- external <- NULL
 # y_var <- "y"
 # x_var <- "x"
+# d_var <- "d"
 # gs_vars <- c("z", "c")
 # ep_vars <- "c"
 # tdm_family <- "binomial"
 # ep_data <- "validation"
-# beta_0_formula <- 1
 # delta_var <- TRUE
 #
-# fit <- psc_algebraic(all_data = all_data,
-#                      y_var = "y",
-#                      x_var = "x",
-#                      gs_vars = c("z", "c"),
-#                      ep_vars = "c")
-psc_algebraic <- function(all_data = NULL,
-                          main = NULL,
-                          internal = NULL,
-                          external = NULL,
-                          y_var,
-                          x_var,
-                          gs_vars,
-                          ep_vars,
-                          tdm_family = "gaussian",
-                          ep_data = "validation",
-                          delta_var = TRUE) {
+# fit <- psc_algebraic_d(all_data = all_data,
+#                        y_var = "y",
+#                        x_var = "x",
+#                        d_var = "d",
+#                        gs_vars = c("z", "c"),
+#                        ep_vars = "c")
+
+psc_algebraic_d <- function(all_data = NULL,
+                            main = NULL,
+                            internal = NULL,
+                            external = NULL,
+                            y_var,
+                            x_var,
+                            d_var,
+                            gs_vars,
+                            ep_vars,
+                            tdm_family = "gaussian",
+                            ep_data = "validation",
+                            delta_var = TRUE) {
 
   # Get full list of covariates
-  covariates <- unique(c(x_var, gs_vars, ep_vars))
+  covariates <- unique(c(x_var, d_var, gs_vars, ep_vars))
 
   # Get list of covariates subject to missingness
   covariates.missing <- setdiff(gs_vars, ep_vars)
@@ -119,7 +111,7 @@ psc_algebraic <- function(all_data = NULL,
 
   }
 
-  # Find validation data with (X, Z, C)
+  # Find validation data with (X, Z, D, C)
   locs.val <- which(complete.cases(all_data[, covariates]))
   val_data <- all_data[locs.val, ]
 
@@ -157,8 +149,8 @@ psc_algebraic <- function(all_data = NULL,
     all_data = all_data,
     y_var = y_var,
     z_var = "g",
-    d_var = "gstar",
-    c_vars = x_var,
+    d_var = "d",
+    c_vars = c(x_var, "gstar"),
     delta_var = delta_var
   )
   return(fit.rc)
