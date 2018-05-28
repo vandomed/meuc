@@ -243,7 +243,7 @@ rc_algebraic <- function(all_data = NULL,
   names(theta.hat) <- theta.labels
   ret.list <- list(theta.hat = theta.hat)
 
-  # Calculate Delta-method variance estimate, if requested
+  # Calculate Delta-method variance estimate if requested
   if (delta_var) {
 
     # Estimate f'(betastar.hat, alpha.hat, sigsq_d)
@@ -263,7 +263,7 @@ rc_algebraic <- function(all_data = NULL,
 
   }
 
-  # Get bootstrap variance estimate if requested
+  # Calculate bootstrap variance estimate if requested
   if (boot_var) {
 
     # Various data types

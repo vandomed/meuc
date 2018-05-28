@@ -80,7 +80,5 @@ d, d ~ N(0, sigsq_d)
 There should be main study data with
 (Y, X, \strong{D}, \strong{C}, \strong{B}) as well as internal validation
 data with (Y, X, Z, \strong{D}, \strong{C}, \strong{B}) and/or external
-validation data with (Z, X, \strong{D}, \strong{C}). Parameters are
-theoretically identifiable without validation data, but estimation may be
-impractical in that scenario.
+validation data with (Z, X, \strong{D}, \strong{C}).
 }
