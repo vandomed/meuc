@@ -6,7 +6,8 @@
 \usage{
 psc_algebraic(all_data = NULL, main = NULL, internal = NULL,
   external = NULL, y_var, x_var, gs_vars, ep_vars, tdm_family = "gaussian",
-  ep_data = "validation", delta_var = TRUE)
+  ep_data = "validation", delta_var = TRUE, boot_var = FALSE,
+  boots = 100)
 }
 \arguments{
 \item{all_data}{Data frame with data for main study and validation study.}
@@ -40,6 +41,11 @@ for second step.}
 variance-covariance matrix. May not be justified theoretically because
 propensity scores are estimated, but also may perform better than bootstrap
 in certain scenarios, e.g. if bootstrap is prone to extreme estimates.}
+
+\item{boot_var}{Logical value for whether to calculate a bootstrap
+variance-covariance matrix.}
+
+\item{boots}{Numeric value specifying number of bootstrap samples to use.}
 }
 \description{
 Implements propensity score calibration as described by Sturmer et al.

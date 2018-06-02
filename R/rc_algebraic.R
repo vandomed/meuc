@@ -298,7 +298,8 @@ rc_algebraic <- function(all_data = NULL,
     rownames(boot.variance) <- colnames(boot.variance) <- theta.labels
     ret.list$boot.var <- boot.variance
 
-    boot.ci <- apply(theta.hat.boots, 2, function(x) quantile(x, probs = c(0.025, 0.975)))
+    boot.ci <- apply(theta.hat.boots, 2, function(x)
+      quantile(x, probs = c(0.025, 0.975)))
     colnames(boot.ci) <- theta.labels
     ret.list$boot.ci <- boot.ci
 

@@ -41,8 +41,8 @@
 #'
 #' @export
 # # Data for testing
-# n.m <- 25000
-# n.e <- 25000
+# n.m <- 1000
+# n.e <- 1000
 # n <- n.m + n.e
 #
 # gammas <- c(0, 0.25, 0.25)
@@ -73,7 +73,8 @@
 #                        x_var = "x",
 #                        d_var = "d",
 #                        gs_vars = c("z", "c"),
-#                        ep_vars = "c")
+#                        ep_vars = "c",
+#                        boot_var = TRUE)
 
 psc_algebraic_d <- function(all_data = NULL,
                             main = NULL,
@@ -86,7 +87,8 @@ psc_algebraic_d <- function(all_data = NULL,
                             ep_vars,
                             tdm_family = "gaussian",
                             ep_data = "validation",
-                            delta_var = TRUE) {
+                            delta_var = TRUE,
+                            boot_var = FALSE, boots = 100) {
 
   # Get full list of covariates
   covariates <- unique(c(x_var, d_var, gs_vars, ep_vars))
@@ -149,11 +151,150 @@ psc_algebraic_d <- function(all_data = NULL,
     all_data = all_data,
     y_var = y_var,
     z_var = "g",
-    d_var = "d",
+    d_var = d_var,
     c_vars = c(x_var, "gstar"),
-    tdm_family = "tdm_family",
+    tdm_family = tdm_family,
     delta_var = delta_var
   )
-  return(fit.rc)
+  if (delta_var) {
+    ret.list <- list(theta.hat = fit.rc$theta.hat,
+                     delta.var = fit.rc$delta.var)
+  } else {
+    ret.list <- list(theta.hat = fit.rc)
+  }
+
+  # Get bootstrap variance estimate if requested
+  if (boot_var) {
+
+    # Various data types
+    locs.m <- which(! is.na(all_data[, y_var]) & ! complete.cases(all_data[, covariates]))
+    locs.i <- which(! is.na(all_data[, y_var]) & complete.cases(all_data[, covariates]))
+    locs.e <- which(is.na(all_data[, y_var]) & complete.cases(all_data[, covariates]))
+
+    # Initialize matrix for theta estimates
+    theta.hat.boots <- matrix(NA, ncol = length(ret.list$theta.hat), nrow = boots)
+
+    # Bootstrap
+    for (ii in 1: boots) {
+
+      theta.hat.boots[ii, ] <- psc_algebraic_d(
+        all_data = all_data[c(sample(locs.m, replace = TRUE),
+                              sample(locs.i, replace = TRUE),
+                              sample(locs.e, replace = TRUE)), ],
+        y_var = y_var,
+        x_var = x_var,
+        d_var = d_var,
+        gs_vars = gs_vars,
+        ep_vars = ep_vars,
+        tdm_family = tdm_family,
+        ep_data = ep_data,
+        delta_var = FALSE
+      )
+
+    }
+
+    # Calculate bootstrap variance estimates
+    boot.variance <- var(theta.hat.boots)
+    rownames(boot.variance) <- colnames(boot.variance) <- names(ret.list$theta.hat)
+    ret.list$boot.var <- boot.variance
+
+    boot.ci <- apply(theta.hat.boots, 2, function(x) quantile(x, probs = c(0.025, 0.975)))
+    colnames(boot.ci) <- names(ret.list$theta.hat)
+    ret.list$boot.ci <- boot.ci
+
+  }
+
+  # Return ret.list
+  if (length(ret.list) == 1) {
+    ret.list <- ret.list[[1]]
+  }
+  return(ret.list)
 
 }
+
+
+
+# psc_algebraic_d <- function(all_data = NULL,
+#                             main = NULL,
+#                             internal = NULL,
+#                             external = NULL,
+#                             y_var,
+#                             x_var,
+#                             d_var,
+#                             gs_vars,
+#                             ep_vars,
+#                             tdm_family = "gaussian",
+#                             ep_data = "validation",
+#                             delta_var = TRUE,
+#                             boot_var = FALSE, boots = 100) {
+#
+#   # Get full list of covariates
+#   covariates <- unique(c(x_var, d_var, gs_vars, ep_vars))
+#
+#   # Get list of covariates subject to missingness
+#   covariates.missing <- setdiff(gs_vars, ep_vars)
+#
+#   # If all_data not specified, create it from main, internal, and external
+#   if (is.null(all_data)) {
+#
+#     if (! all(covariates.missing %in% names(main))) {
+#       main[, covariates.missing] <- NA
+#     }
+#     main <- main[, c(y_var, covariates)]
+#     all_data <- main
+#
+#     if (! y_var %in% names(external)) {
+#       external[, y_var] <- NA
+#     }
+#     external <- external[, c(y_var, covariates)]
+#     all_data <- rbind(all_data, external)
+#
+#   }
+#
+#   # Find validation data with (X, Z, D, C)
+#   locs.val <- which(complete.cases(all_data[, covariates]))
+#   val_data <- all_data[locs.val, ]
+#
+#   # Fit error-prone propensity score model
+#   ep.formula <- paste(paste(x_var, "~"), paste(ep_vars, collapse = " + "))
+#
+#   if (ep_data == "validation") {
+#
+#     fit.ep <- glm(ep.formula, data = val_data, family = "binomial")
+#     all_data$gstar <- predict(fit.ep, newdata = all_data, type = "response")
+#
+#   } else if (ep_data == "separate") {
+#
+#     fit.ep.val <- glm(ep.formula, data = val_data, family = "binomial")
+#     fit.ep.main <- glm(ep.formula, data = all_data[-locs.val, ], family = "binomial")
+#
+#     all_data$gstar <- NA
+#     all_data$gstar[locs.val] <- predict(fit.ep.val, newdata = val_data, type = "response")
+#     all_data$gstar[-locs.val] <- predict(fit.ep.main, newdata = all_data[-locs.val, ], type = "response")
+#
+#   } else {
+#
+#     fit.ep <- glm(ep.formula, data = all_data, family = "binomial")
+#     all_data$gstar <- predict(fit.ep, newdata = all_data, type = "response")
+#
+#   }
+#
+#   # Fit gold standard propensity score model
+#   gs.formula <- paste(paste(x_var, "~"), paste(gs_vars, collapse = " + "))
+#   fit.gs <- glm(gs.formula, data = val_data, family = "binomial")
+#   all_data$g <- predict(fit.gs, newdata = all_data, type = "response")
+#
+#   # Call rc_algebraic
+#   fit.rc <- rc_algebraic(
+#     all_data = all_data,
+#     y_var = y_var,
+#     z_var = "g",
+#     d_var = d_var,
+#     c_vars = c(x_var, "gstar"),
+#     tdm_family = tdm_family,
+#     delta_var = delta_var
+#   )
+#
+#   return(fit.rc)
+#
+# }

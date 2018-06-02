@@ -53,8 +53,8 @@
 #'
 #' @export
 # # Data for testing
-# n.m <- 25000
-# n.e <- 25000
+# n.m <- 1000
+# n.e <- 1000
 # n <- n.m + n.e
 #
 # gammas <- c(0, 0.25, 0.25)
@@ -74,7 +74,7 @@
 # x_var <- "x"
 # gs_vars <- c("z", "c")
 # ep_vars <- "c"
-# tdm_family <- "binomial"
+# tdm_family <- "gaussian"
 # ep_data <- "validation"
 # beta_0_formula <- 1
 # delta_var <- TRUE
@@ -83,7 +83,8 @@
 #                      y_var = "y",
 #                      x_var = "x",
 #                      gs_vars = c("z", "c"),
-#                      ep_vars = "c")
+#                      ep_vars = "c",
+#                      boot_var = TRUE)
 psc_algebraic <- function(all_data = NULL,
                           main = NULL,
                           internal = NULL,
@@ -94,7 +95,8 @@ psc_algebraic <- function(all_data = NULL,
                           ep_vars,
                           tdm_family = "gaussian",
                           ep_data = "validation",
-                          delta_var = TRUE) {
+                          delta_var = TRUE,
+                          boot_var = FALSE, boots = 100) {
 
   # Get full list of covariates
   covariates <- unique(c(x_var, gs_vars, ep_vars))
@@ -162,6 +164,58 @@ psc_algebraic <- function(all_data = NULL,
     tdm_family = tdm_family,
     delta_var = delta_var
   )
-  return(fit.rc)
+  if (delta_var) {
+    ret.list <- list(theta.hat = fit.rc$theta.hat,
+                     delta.var = fit.rc$delta.var)
+  } else {
+    ret.list <- list(theta.hat = fit.rc)
+  }
+
+  # Get bootstrap variance estimate if requested
+  if (boot_var) {
+
+    # Various data types
+    locs.m <- which(! is.na(all_data[, y_var]) & ! complete.cases(all_data[, covariates]))
+    locs.i <- which(! is.na(all_data[, y_var]) & complete.cases(all_data[, covariates]))
+    locs.e <- which(is.na(all_data[, y_var]) & complete.cases(all_data[, covariates]))
+
+    # Initialize matrix for theta estimates
+    theta.hat.boots <- matrix(NA, ncol = length(ret.list$theta.hat), nrow = boots)
+
+    # Bootstrap
+    for (ii in 1: boots) {
+
+      theta.hat.boots[ii, ] <- psc_algebraic(
+        all_data = all_data[c(sample(locs.m, replace = TRUE),
+                              sample(locs.i, replace = TRUE),
+                              sample(locs.e, replace = TRUE)), ],
+        y_var = y_var,
+        x_var = x_var,
+        gs_vars = gs_vars,
+        ep_vars = ep_vars,
+        tdm_family = tdm_family,
+        ep_data = ep_data,
+        delta_var = FALSE
+      )
+
+    }
+
+    # Calculate bootstrap variance estimates
+    boot.variance <- var(theta.hat.boots)
+    rownames(boot.variance) <- colnames(boot.variance) <- names(ret.list$theta.hat)
+    ret.list$boot.var <- boot.variance
+
+    boot.ci <- apply(theta.hat.boots, 2, function(x)
+      quantile(x, probs = c(0.025, 0.975)))
+    colnames(boot.ci) <- names(ret.list$theta.hat)
+    ret.list$boot.ci <- boot.ci
+
+  }
+
+  # Return ret.list
+  if (length(ret.list) == 1) {
+    ret.list <- ret.list[[1]]
+  }
+  return(ret.list)
 
 }

@@ -195,9 +195,6 @@ psc <- function(all_data = NULL,
         all_data = all_data[c(sample(locs.m, replace = TRUE),
                               sample(locs.i, replace = TRUE),
                               sample(locs.e, replace = TRUE)), ],
-        main = NULL,
-        internal = NULL,
-        external = NULL,
         y_var = y_var,
         x_var = x_var,
         gs_vars = gs_vars,
@@ -215,7 +212,8 @@ psc <- function(all_data = NULL,
     rownames(boot.variance) <- colnames(boot.variance) <- beta.labels
     ret.list$boot.var <- boot.variance
 
-    boot.ci <- apply(beta.hat.boots, 2, function(x) quantile(x, probs = c(0.025, 0.975)))
+    boot.ci <- apply(beta.hat.boots, 2, function(x)
+      quantile(x, probs = c(0.025, 0.975)))
     colnames(boot.ci) <- beta.labels
     ret.list$boot.ci <- boot.ci
 
