@@ -44,6 +44,7 @@
 #' @param boot_var Logical value for whether to calculate a bootstrap
 #' variance-covariance matrix.
 #' @param boots Numeric value specifying number of bootstrap samples to use.
+#' @param alpha Significance level for percentile bootstrap confidence interval.
 #'
 #'
 #' @return
@@ -131,7 +132,8 @@ rc_cond_exp <- function(all_data = NULL,
                         tdm_covariates = NULL, tdm_family = "gaussian",
                         mem_covariates = NULL, mem_family = "gaussian",
                         all_imputed = FALSE,
-                        boot_var = FALSE, boots = 100) {
+                        boot_var = FALSE, boots = 100,
+                        alpha = 0.05) {
 
   # If tdm_covariates is NULL, construct it as (Z, C, B)
   if (is.null(tdm_covariates)) {
@@ -272,7 +274,8 @@ rc_cond_exp <- function(all_data = NULL,
     rownames(boot.variance) <- colnames(boot.variance) <- theta.labels
     ret.list$boot.var <- boot.variance
 
-    boot.ci <- apply(theta.hat.boots, 2, function(x) quantile(x, probs = c(0.025, 0.975)))
+    boot.ci <- apply(theta.hat.boots, 2, function(x)
+      quantile(x, probs = c(alpha / 2, 1 - alpha / 2)))
     colnames(boot.ci) <- theta.labels
     ret.list$boot.ci <- boot.ci
 

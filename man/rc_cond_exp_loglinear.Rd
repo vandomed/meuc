@@ -8,7 +8,7 @@ rc_cond_exp_loglinear(all_data = NULL, main = NULL, internal = NULL,
   external = NULL, y_var, z_var, d_vars = NULL, c_vars = NULL,
   b_vars = NULL, tdm_covariates = NULL, tdm_family = "gaussian",
   mem_covariates = NULL, all_imputed = FALSE, boot_var = FALSE,
-  boots = 100)
+  boots = 100, alpha = 0.05)
 }
 \arguments{
 \item{all_data}{Data frame with data for main study and validation study.}
@@ -48,6 +48,8 @@ subjects).}
 variance-covariance matrix.}
 
 \item{boots}{Numeric value specifying number of bootstrap samples to use.}
+
+\item{alpha}{Significance level for percentile bootstrap confidence interval.}
 }
 \value{
 If \code{boot_var = TRUE}, list containing parameter estimates,

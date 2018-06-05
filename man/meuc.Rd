@@ -16,7 +16,7 @@ either two or three specified regression models.
 Package: \tab meuc \cr
 Type: \tab Package \cr
 Version: \tab 1.1.1 \cr
-Date: \tab 2018-06-02 \cr
+Date: \tab 2018-06-04 \cr
 License: \tab GPL-3 \cr
 }
 }

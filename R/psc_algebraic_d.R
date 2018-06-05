@@ -88,7 +88,8 @@ psc_algebraic_d <- function(all_data = NULL,
                             tdm_family = "gaussian",
                             ep_data = "validation",
                             delta_var = TRUE,
-                            boot_var = FALSE, boots = 100) {
+                            boot_var = FALSE, boots = 100,
+                            alpha = 0.05) {
 
   # Get full list of covariates
   covariates <- unique(c(x_var, d_var, gs_vars, ep_vars))
@@ -198,7 +199,8 @@ psc_algebraic_d <- function(all_data = NULL,
     rownames(boot.variance) <- colnames(boot.variance) <- names(ret.list$theta.hat)
     ret.list$boot.var <- boot.variance
 
-    boot.ci <- apply(theta.hat.boots, 2, function(x) quantile(x, probs = c(0.025, 0.975)))
+    boot.ci <- apply(theta.hat.boots, 2, function(x)
+      quantile(x, probs = c(alpha / 2, 1 - alpha / 2)))
     colnames(boot.ci) <- names(ret.list$theta.hat)
     ret.list$boot.ci <- boot.ci
 

@@ -111,7 +111,8 @@ rc_algebraic <- function(all_data = NULL,
                          mem_covariates = NULL,
                          beta_0_formula = 1,
                          delta_var = TRUE,
-                         boot_var = FALSE, boots = 100) {
+                         boot_var = FALSE, boots = 100,
+                         alpha = 0.05) {
 
   # If beta_0_formula = 2, check that it is reasonable
   if (beta_0_formula == 2) {
@@ -299,7 +300,7 @@ rc_algebraic <- function(all_data = NULL,
     ret.list$boot.var <- boot.variance
 
     boot.ci <- apply(theta.hat.boots, 2, function(x)
-      quantile(x, probs = c(0.025, 0.975)))
+      quantile(x, probs = c(alpha / 2, 1 - alpha / 2)))
     colnames(boot.ci) <- theta.labels
     ret.list$boot.ci <- boot.ci
 

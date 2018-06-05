@@ -82,7 +82,8 @@ rc_cond_exp_loglinear <- function(all_data = NULL,
                                   mem_covariates = NULL,
                                   all_imputed = FALSE,
                                   boot_var = FALSE,
-                                  boots = 100) {
+                                  boots = 100,
+                                  alpha = 0.05) {
 
   # If tdm_covariates is NULL, construct it as (Z, C, B)
   if (is.null(tdm_covariates)) {
@@ -207,7 +208,8 @@ rc_cond_exp_loglinear <- function(all_data = NULL,
     rownames(boot.variance) <- colnames(boot.variance) <- theta.labels
     ret.list$boot.var <- boot.variance
 
-    boot.ci <- apply(theta.hat.boots, 2, function(x) quantile(x, probs = c(0.025, 0.975)))
+    boot.ci <- apply(theta.hat.boots, 2, function(x)
+      quantile(x, probs = c(alpha / 2, 1 - alpha / 2)))
     colnames(boot.ci) <- theta.labels
     ret.list$boot.ci <- boot.ci
 

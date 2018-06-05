@@ -6,8 +6,7 @@
 \usage{
 psc(all_data = NULL, main = NULL, internal = NULL, external = NULL,
   y_var, x_var, gs_vars, ep_vars, tdm_family = "gaussian", surrogacy = TRUE,
-  ep_data = "validation", all_imputed = FALSE, boot_var = FALSE,
-  boots = 100)
+  ep_data = "validation", boot_var = FALSE, boots = 100, alpha = 0.05)
 }
 \arguments{
 \item{all_data}{Data frame with data for main study and validation study.}
@@ -42,14 +41,12 @@ validation study data, \code{"all"} for main study and validation study data,
 and \code{"separate"} for validation data for first step and main study data
 for second step.}
 
-\item{all_imputed}{Logical value for whether to use imputed Z's for all
-subjects, even those with the actual Z's observed (i.e. internal validation
-subjects).}
-
 \item{boot_var}{Logical value for whether to calculate a bootstrap
 variance-covariance matrix.}
 
 \item{boots}{Numeric value specifying number of bootstrap samples to use.}
+
+\item{alpha}{Significance level for percentile bootstrap confidence interval.}
 }
 \description{
 Implements propensity score calibration as described by Sturmer et al.

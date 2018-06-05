@@ -86,8 +86,8 @@ rc_greenland <- function(all_data = NULL,
                          b_vars = NULL,
                          tdm_family = "gaussian") {
 
-  # Make sure dat is a matrix
-  dat <- as.matrix(dat)
+  # # Make sure dat is a matrix
+  # dat <- as.matrix(dat)
 
   # Create main and internal datasets if necessary
   if (! is.null(all_data)) {
@@ -110,23 +110,31 @@ rc_greenland <- function(all_data = NULL,
   # Estimate betas using main study/pretend external validation data
   external <- internal
   external[, y_var] <- NA
-  tdm.fit.e <- rc_algebraic(all_data = rbind(main, external),
+  tdm.fit.e <- rc_algebraic(main = main,
+                            external = external,
                             y_var = y_var,
                             z_var = z_var,
                             d_var = d_var,
                             c_vars = c_vars,
                             tdm_family = tdm_family,
                             delta_var = TRUE)
+  # tdm.fit.e <- rc_algebraic(all_data = rbind(main, external),
+  #                           y_var = y_var,
+  #                           z_var = z_var,
+  #                           d_var = d_var,
+  #                           c_vars = c_vars,
+  #                           tdm_family = tdm_family,
+  #                           delta_var = TRUE)
   theta.e <- tdm.fit.e$theta.hat[1: length(theta.i)]
-  var.e <- tdm.fit.e$delta.var
+  var.e <- tdm.fit.e$delta.var[1: length(theta.i), 1: length(theta.i)]
 
   # Determine weights, estimate parameters, and estimate variance
   c1 <- diag(var.e) / (diag(var.i) + diag(var.e))
-  theta <- c1 * theta.i + (1 - c1) * theta.e
+  theta.hat <- c1 * theta.i + (1 - c1) * theta.e
   theta.var <- as.matrix(diag(c1) %*% var.i %*% diag(c1) + diag(1 - c1) %*% var.e %*% diag(1 - c1))
 
   # Create and return ret.list
-  ret.list <- list(theta = theta, theta.var = theta.var)
+  ret.list <- list(theta.hat = theta.hat, theta.var = theta.var)
   return(ret.list)
 
 }

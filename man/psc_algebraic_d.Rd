@@ -7,7 +7,7 @@
 psc_algebraic_d(all_data = NULL, main = NULL, internal = NULL,
   external = NULL, y_var, x_var, d_var, gs_vars, ep_vars,
   tdm_family = "gaussian", ep_data = "validation", delta_var = TRUE,
-  boot_var = FALSE, boots = 100)
+  boot_var = FALSE, boots = 100, alpha = 0.05)
 }
 \arguments{
 \item{all_data}{Data frame with data for main study and validation study.}
@@ -48,6 +48,8 @@ in certain scenarios, e.g. if bootstrap is prone to extreme estimates.}
 variance-covariance matrix.}
 
 \item{boots}{Numeric value specifying number of bootstrap samples to use.}
+
+\item{alpha}{Significance level for percentile bootstrap confidence interval.}
 }
 \description{
 Implements propensity score calibration as described by Sturmer et al.
