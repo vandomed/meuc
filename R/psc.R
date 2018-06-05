@@ -161,7 +161,7 @@ psc <- function(all_data = NULL,
   }
 
   # Calculate G*'s and E(G)'s for main study subjects
-  y_data$gstar[locs.main] <- predict(fit.ep, newdata = main, family = "binomial")
+  y_data$gstar[locs.main] <- predict(fit.ep, newdata = main, type = "response")
   y_data$g[locs.main] <- as.matrix(cbind(1, y_data[locs.main, c(x_var, "gstar")])) %*% fit.mem$coef
 
   # Fit TDM and return beta estimate
