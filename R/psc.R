@@ -134,7 +134,10 @@ psc <- function(all_data = NULL,
   locs.main <- which(! is.na(all_data[, y_var]) & ! complete.cases(all_data[, covariates]))
   main <- all_data[locs.main, ]
 
-  # Fit error-prone propensity score model and add G*'s to validation subjects
+  # Figure out type of validation data
+  val.type <- ifelse(length(locs.main) == length(locs.y), "external", "internal")
+
+  # Fit error-prone propensity score model
   ep.formula <- paste(paste(x_var, "~"), paste(ep_vars, collapse = " + "))
   if (ep_data %in% c("validation", "separate")) {
     fit.ep <- glm(ep.formula, data = val_data, family = "binomial")
@@ -142,18 +145,22 @@ psc <- function(all_data = NULL,
     fit.ep <- glm(ep.formula, data = all_data, family = "binomial")
   }
   fitted.gstar <- predict(fit.ep, newdata = val_data, type = "response")
-  y_data$gstar <- NA
-  y_data$gstar[locs.val] <- fitted.gstar
 
-  # Fit gold standard propensity score model and add G's to validation subjects
+  # Fit gold standard propensity score model
   gs.formula <- paste(paste(x_var, "~"), paste(gs_vars, collapse = " + "))
   fit.gs <- glm(gs.formula, data = val_data, family = "binomial")
   fitted.g <- fit.gs$fitted
-  y_data$g <- NA
-  y_data$g[locs.val] <- fitted.g
 
   # Fit MEM for G vs. (X, G*)
   fit.mem <- lm(fitted.g ~ val_data[, x_var] + fitted.gstar)
+
+  # Add G*'s and G's to y_data for internal validation subjects
+  y_data$gstar <- NA
+  y_data$g <- NA
+  if (val.type == "internal") {
+    y_data$gstar[locs.val] <- fitted.gstar
+    y_data$g[locs.val] <- fitted.g
+  }
 
   # Re-fit error-prone propensity score model if requested
   if (ep_data == "separate") {
