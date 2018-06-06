@@ -116,7 +116,7 @@ ml_linear_linear <- function(all_data = NULL,
     external <- all_data[is.na(all_data[, y_var]) & complete.cases(all_data[, zdc]), ]
   }
 
-  n.m <- nrow(main)
+  n.m <- ifelse(is.null(main), 0, nrow(main))
   some.m <- n.m > 0
   if (some.m) {
     y.m <- main[, y_var]
@@ -124,7 +124,7 @@ ml_linear_linear <- function(all_data = NULL,
     onedc.m <- as.matrix(cbind(rep(1, n.m), main[, c(d_vars, c_vars)]))
   }
 
-  n.i <- nrow(internal)
+  n.i <- ifelse(is.null(internal), 0, nrow(internal))
   some.i <- n.i > 0
   if (some.i) {
     y.i <- internal[, y_var]
@@ -133,7 +133,7 @@ ml_linear_linear <- function(all_data = NULL,
     onedc.i <- as.matrix(cbind(rep(1, n.i), internal[, c(d_vars, c_vars)]))
   }
 
-  n.e <- nrow(external)
+  n.e <- ifelse(is.null(external), 0, nrow(external))
   some.e <- n.e > 0
   if (some.e) {
     z.e <- external[, z_var]

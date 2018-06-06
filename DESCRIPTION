@@ -2,7 +2,7 @@ Package: meuc
 Type: Package
 Title: Measurement Error and Unmeasured Confounding
 Version: 1.1.1
-Date: 2018-06-04
+Date: 2018-06-06
 Author: Dane R. Van Domelen
 Maintainer: Dane R. Van Domelen <vandomed@gmail.com>
 Description: Functions for implementing corrective methods for covariate measurement error/missing data/unmeasured confounding, when validation data are available. Methods include regression calibration, propensity score calibration, and maximum likelihood based on either two or three specified regression models.
