@@ -74,7 +74,7 @@ estimates. If one or more variance estimates are requested, a list that also
 contains a variance-covariance matrix for each variance estimator.
 }
 \description{
-Implements the "algebraic" version of regression calibration as described in
+Implements the "algebraic" version of regression calibration as described by
 Rosner et al. (\emph{Stat. Med.} 1989). For the "conditional expectation"
 version, see \code{\link{rc_cond_exp}}.
 }

@@ -31,6 +31,9 @@
 #' estimating the Hessian matrix only. Sometimes using a smaller value than for
 #' likelihood maximization helps prevent cases where the inverse Hessian is not
 #' positive definite.
+#' @param fix_posdef Logical value for whether to repeatedly reduce
+#' \code{integrate_tol_hessian} by factor of 5 and re-estimate Hessian to try
+#' to avoid non-positive definite variance-covariance matrix.
 #'
 #'
 #' @inherit ml_linear_linear return
@@ -91,6 +94,7 @@ ml_logistic_linear <- function(all_data = NULL,
                                integrate_tol = 1e-8,
                                integrate_tol_hessian = integrate_tol,
                                estimate_var = TRUE,
+                               fix_posdef = FALSE,
                                ...) {
 
   # If tdm.covariates and mem.covariates specified, figure out d.vars, c.vars,
@@ -326,17 +330,57 @@ ml_logistic_linear <- function(all_data = NULL,
 
   # If requested, add variance-covariance matrix to ret.list
   if (estimate_var) {
+
+    # Estimate Hessian
     hessian.mat <- pracma::hessian(f = llf, estimating.hessian = TRUE,
                                    x0 = theta.hat)
     theta.variance <- try(solve(hessian.mat), silent = TRUE)
-    if (class(theta.variance) == "try-error") {
+    if (class(theta.variance) == "try-error" ||
+        ! all(eigen(x = theta.variance, only.values = TRUE)$values > 0)) {
+
+      # Repeatedly divide integrate_tol_hessian by 5 and re-try
+      while (integrate_tol_hessian > 1e-15 & fix_posdef) {
+        integrate_tol_hessian <- integrate_tol_hessian / 5
+        hessian.mat <- pracma::hessian(f = llf, estimating.hessian = TRUE,
+                                       x0 = theta.hat)
+        theta.variance <- try(solve(hessian.mat), silent = TRUE)
+        if (class(theta.variance) != "try-error" &&
+            all(eigen(x = theta.variance, only.values = TRUE)$values > 0)) {
+          break
+        }
+
+      }
+    }
+
+    if (class(theta.variance) == "try-error" ||
+        ! all(eigen(x = theta.variance, only.values = TRUE)$values > 0)) {
+
+      print(hessian.mat)
       message("Estimated Hessian matrix is singular, so variance-covariance matrix cannot be obtained.")
       ret.list$theta.var <- NULL
+
     } else {
+
       colnames(theta.variance) <- rownames(theta.variance) <- theta.labels
       ret.list$theta.var <- theta.variance
+
     }
+
   }
+
+  # # If requested, add variance-covariance matrix to ret.list
+  # if (estimate_var) {
+  #   hessian.mat <- pracma::hessian(f = llf, estimating.hessian = TRUE,
+  #                                  x0 = theta.hat)
+  #   theta.variance <- try(solve(hessian.mat), silent = TRUE)
+  #   if (class(theta.variance) == "try-error") {
+  #     message("Estimated Hessian matrix is singular, so variance-covariance matrix cannot be obtained.")
+  #     ret.list$theta.var <- NULL
+  #   } else {
+  #     colnames(theta.variance) <- rownames(theta.variance) <- theta.labels
+  #     ret.list$theta.var <- theta.variance
+  #   }
+  # }
 
   # Add nlminb object and AIC to ret.list
   ret.list$nlminb.object <- ml.max

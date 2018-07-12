@@ -93,7 +93,6 @@ ml_logistic_logistic_loglinear <- function(all_data = NULL,
                                            d_vars = NULL,
                                            c_vars = NULL,
                                            b_vars = NULL,
-                                           approx_integral = TRUE,
                                            integrate_tol = 1e-8,
                                            integrate_tol_hessian = integrate_tol,
                                            estimate_var = FALSE,
@@ -166,7 +165,7 @@ ml_logistic_logistic_loglinear <- function(all_data = NULL,
   theta.labels <- c(beta.labels, gamma.labels, alpha.labels, "sigsq_d")
 
   # Likelihood function for full ML
-  if (some.m && ! approx_integral) {
+  if (some.m) {
     lf.full <- function(y,
                         x,
                         z,

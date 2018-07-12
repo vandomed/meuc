@@ -8,7 +8,8 @@ Regression, and Linear Regression}
 ml_linear_logistic_linear(all_data = NULL, main = NULL, internal = NULL,
   external = NULL, y_var, x_var, z_var, d_vars = NULL, c_vars = NULL,
   b_vars = NULL, integrate_tol = 1e-08,
-  integrate_tol_hessian = integrate_tol, estimate_var = FALSE, ...)
+  integrate_tol_hessian = integrate_tol, estimate_var = FALSE,
+  fix_posdef = FALSE, ...)
 }
 \arguments{
 \item{all_data}{Data frame with data for main study and validation study.}
@@ -42,6 +43,10 @@ positive definite.}
 
 \item{estimate_var}{Logical value for whether to return variance-covariance
 matrix for parameter estimates.}
+
+\item{fix_posdef}{Logical value for whether to repeatedly reduce
+\code{integrate_tol_hessian} by factor of 5 and re-estimate Hessian to try
+to avoid non-positive definite variance-covariance matrix.}
 
 \item{...}{Additional arguments to pass to \code{\link[stats]{nlminb}}.}
 }

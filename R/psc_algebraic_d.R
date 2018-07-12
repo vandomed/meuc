@@ -1,9 +1,10 @@
-#' Propensity Score Calibration with Extra Surrogate Variable
+#' Propensity Score Calibration with Extra D Variable to Relax Surrogacy
+#' Assumption
 #'
-#' Implements propensity score calibration as described by Sturmer et al.
-#' (\emph{Am. J. Epidemiol.} 2005), but using separate surrogate variable D to
-#' avoid having to assume error-prone propensity score is uninformative of
-#' outcome.
+#' Implements the "algebraic" version of propensity score calibration as
+#' described by Sturmer et al. (\emph{Am. J. Epidemiol.} 2005), but with an
+#' extra D variable in the MEM, which allows the error-prone propensity score
+#' to be included in the TDM rather than assumed uninformative of the outcome.
 #'
 #' The true disease model is a GLM:
 #'

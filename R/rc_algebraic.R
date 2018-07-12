@@ -1,6 +1,6 @@
 #' Regression Calibration (Algebraic Method)
 #'
-#' Implements the "algebraic" version of regression calibration as described in
+#' Implements the "algebraic" version of regression calibration as described by
 #' Rosner et al. (\emph{Stat. Med.} 1989). For the "conditional expectation"
 #' version, see \code{\link{rc_cond_exp}}.
 #'

@@ -1,7 +1,8 @@
-#' Propensity Score Calibration
+#' Propensity Score Calibration (Conditional Expectation Method)
 #'
-#' Implements propensity score calibration as described by Sturmer et al.
-#' (\emph{Am. J. Epidemiol.} 2005). Requires validation data.
+#' Implements the "conditional expectation" version of propensity score
+#' calibration as described by Sturmer et al. (\emph{Am. J. Epidemiol.} 2005).
+#' For the "algebraic" version, see \code{\link{psc_algebraic}}.
 #'
 #' The true disease model is a GLM:
 #'
@@ -72,25 +73,25 @@
 # boot_var <- TRUE
 # boots <- 100
 #
-# fit <- psc(all_data = all_data,
-#            y_var = "y",
-#            x_var = "x",
-#            gs_vars = c("z", "c"),
-#            ep_vars = "c")
+# fit <- psc_cond_exp(all_data = all_data,
+#                     y_var = "y",
+#                     x_var = "x",
+#                     gs_vars = c("z", "c"),
+#                     ep_vars = "c")
 
-psc <- function(all_data = NULL,
-                main = NULL,
-                internal = NULL,
-                external = NULL,
-                y_var,
-                x_var,
-                gs_vars,
-                ep_vars,
-                tdm_family = "gaussian",
-                surrogacy = TRUE,
-                ep_data = "validation",
-                boot_var = FALSE, boots = 100,
-                alpha = 0.05) {
+psc_cond_exp <- function(all_data = NULL,
+                         main = NULL,
+                         internal = NULL,
+                         external = NULL,
+                         y_var,
+                         x_var,
+                         gs_vars,
+                         ep_vars,
+                         tdm_family = "gaussian",
+                         surrogacy = TRUE,
+                         ep_data = "validation",
+                         boot_var = FALSE, boots = 100,
+                         alpha = 0.05) {
 
   # Get full list of covariates
   covariates <- unique(c(x_var, gs_vars, ep_vars))
@@ -200,7 +201,7 @@ psc <- function(all_data = NULL,
     # Bootstrap
     for (ii in 1: boots) {
 
-      beta.hat.boots[ii, ] <- psc(
+      beta.hat.boots[ii, ] <- psc_cond_exp(
         all_data = all_data[c(sample(locs.m, replace = TRUE),
                               sample(locs.i, replace = TRUE),
                               sample(locs.e, replace = TRUE)), ],

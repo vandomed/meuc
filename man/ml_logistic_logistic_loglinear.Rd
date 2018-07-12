@@ -7,9 +7,8 @@ Regression, and Log-transformed Linear Regression}
 \usage{
 ml_logistic_logistic_loglinear(all_data = NULL, main = NULL,
   internal = NULL, external = NULL, y_var, x_var, z_var, d_vars = NULL,
-  c_vars = NULL, b_vars = NULL, approx_integral = TRUE,
-  integrate_tol = 1e-08, integrate_tol_hessian = integrate_tol,
-  estimate_var = FALSE, ...)
+  c_vars = NULL, b_vars = NULL, integrate_tol = 1e-08,
+  integrate_tol_hessian = integrate_tol, estimate_var = FALSE, ...)
 }
 \arguments{
 \item{all_data}{Data frame with data for main study and validation study.}
@@ -32,10 +31,6 @@ ml_logistic_logistic_loglinear(all_data = NULL, main = NULL,
 
 \item{b_vars}{Character vector specifying names of variables in true disease
 model but not in measurement error model.}
-
-\item{approx_integral}{Logical value for whether to use the probit
-approximation for the logistic-normal integral, to avoid numerically
-integrating \code{Z}'s out of the likelihood function.}
 
 \item{integrate_tol}{Numeric value specifying \code{tol} input to
 \code{\link[cubature]{hcubature}} for numerical integration.}

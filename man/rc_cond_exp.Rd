@@ -61,7 +61,7 @@ otherwise just the parameter estimates.
 }
 \description{
 Implements the "conditional expectation" version of regression calibration as
-described in Rosner et al. (\emph{Stat. Med.} 1989). For the "algebraic"
+described by Rosner et al. (\emph{Stat. Med.} 1989). For the "algebraic"
 version, see \code{\link{rc_algebraic}}.
 }
 \details{

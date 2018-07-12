@@ -1,7 +1,8 @@
 #' Propensity Score Calibration (Algebraic Method)
 #'
-#' Implements propensity score calibration as described by Sturmer et al.
-#' (\emph{Am. J. Epidemiol.} 2005). Requires validation data.
+#' Implements the "algebraic" version of propensity score calibration as
+#' described by Sturmer et al. (\emph{Am. J. Epidemiol.} 2005). For the
+#' "conditional expectation" version, see \code{\link{psc_cond_exp}}.
 #'
 #' The true disease model is a GLM:
 #'

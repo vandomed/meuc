@@ -2,7 +2,8 @@
 % Please edit documentation in R/psc_algebraic_d.R
 \name{psc_algebraic_d}
 \alias{psc_algebraic_d}
-\title{Propensity Score Calibration with Extra Surrogate Variable}
+\title{Propensity Score Calibration with Extra D Variable to Relax Surrogacy
+Assumption}
 \usage{
 psc_algebraic_d(all_data = NULL, main = NULL, internal = NULL,
   external = NULL, y_var, x_var, d_var, gs_vars, ep_vars,
@@ -52,10 +53,10 @@ variance-covariance matrix.}
 \item{alpha}{Significance level for percentile bootstrap confidence interval.}
 }
 \description{
-Implements propensity score calibration as described by Sturmer et al.
-(\emph{Am. J. Epidemiol.} 2005), but using separate surrogate variable D to
-avoid having to assume error-prone propensity score is uninformative of
-outcome.
+Implements the "algebraic" version of propensity score calibration as
+described by Sturmer et al. (\emph{Am. J. Epidemiol.} 2005), but with an
+extra D variable in the MEM, which allows the error-prone propensity score
+to be included in the TDM rather than assumed uninformative of the outcome.
 }
 \details{
 The true disease model is a GLM:
