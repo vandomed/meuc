@@ -2,27 +2,27 @@
 #'
 #' Assumes exposure measurements are subject to additive normal measurement
 #' errors, and exposure given covariates is a normal-errors linear regression.
-#' Some replicates are required for identifiability. Parameters are estimated 
-#' using maximum likelihood. 
-#' 
+#' Some replicates are required for identifiability. Parameters are estimated
+#' using maximum likelihood.
+#'
 #' Disease model is:
-#' 
-#' logit[P(Y = 1|X, \strong{C})] = beta_0 + beta_x X + \strong{beta_c}^T 
+#'
+#' logit[P(Y = 1|X, \strong{C})] = beta_0 + beta_x X + \strong{beta_c}^T
 #' \strong{C}
-#' 
+#'
 #' Measurement error model is:
-#' 
+#'
 #' Xtilde|X ~ N(0, sigsq_m)
-#' 
+#'
 #' Exposure model is:
-#' 
+#'
 #' X|\strong{C} ~ N(alpha_0 + \strong{alpha_c}^T \strong{C}, sigsq_x.c)
 #'
 #'
 #' @param y Numeric vector of Y values.
 #' @param xtilde List of numeric vectors with Xtilde values.
-#' @param c Numeric matrix with \strong{C} values (if any), with
-#' one row for each pool. Can be a vector if there is only 1 covariate.
+#' @param c Numeric matrix with \strong{C} values (if any), with one row for
+#' each subject. Can be a vector if there is only 1 covariate.
 #' @param prev Numeric value specifying disease prevalence, allowing for valid
 #' estimation of the intercept with case-control sampling. Can specify
 #' \code{samp_y1y0} instead if sampling rates are known.
@@ -55,26 +55,44 @@
 #'
 #'
 #' @examples
-#' # Load dataset - dat1 has (Y, X, C) values and dat1_xtilde is list with 1 or 
-#' # 2 Xtilde measurements for each subject. True log-OR (beta_x) is 0.2.
-#' data(dat1)
-#' data(dat1_xtilde)
-#' 
-#' # Unobservable truth - use true X's
-#' fit1 <- logreg_xerrors1(y = dat1$y, xtilde = dat1$x, c = dat1$c, 
-#'                         merror = FALSE)
-#' fit1$theta.hat
-#' 
-#' # Naive - use Xtilde's but ignore measurement error. Note that when merror is 
-#' # set to FALSE, first Xtilde value for each subject is used.
-#' fit2 <- logreg_xerrors1(y = dat1$y, xtilde = dat1_xtilde, c = dat1$c,
-#'                         merror = FALSE)
-#' fit2$theta.hat
+#' # Load data frame with (Y, X, Xtilde, C) values for 500 subjects and list of
+#' # Xtilde values where 25 subjects have replicates. Xtilde values are affected
+#' # by measurement error. True parameter values are beta_0 = -0.5 beta_x = 0.2,
+#' # beta_c = 0.1, sigsq_m = 0.5.
+#' data(dat_logreg_xerrors1)
+#' dat <- dat_logreg_xerrors1$dat
+#' reps <- dat_logreg_xerrors1$reps
 #'
-#' # Corrected - use probit approximation to avoid numerical integration.
-#' fit3 <- logreg_xerrors1(y = dat1$y, xtilde = dat1_xtilde, c = dat1$c,
-#'                         merror = TRUE)
-#' fit3$theta.hat
+#' # Logistic regression of Y vs. (X, C) (unobservable truth).
+#' fit.unobservable <- glm(y ~ x + c, data = dat, family = "binomial")
+#' fit.unobservable$coef
+#'
+#' # Logistic regression of Y vs. (Xtilde, C) ignoring measurement error.
+#' fit.naive <- glm(y ~ xtilde + c, data = dat, family = "binomial")
+#' fit.naive$coef
+#'
+#' # Logistic regression of Y vs. (Xtilde, C), accounting for measurement error.
+#' # Avoiding numerical integration by using the probit approximation.
+#' fit.approxml <- logreg_xerrors1(
+#'   y = dat$y,
+#'   xtilde = reps,
+#'   c = dat$c,
+#'   approx_integral = TRUE,
+#' )
+#' fit.approxml$theta.hat
+#'
+#' # Repeat, but perform numerical integration. Takes a few minutes to run.
+#' \dontrun{
+#' fit.fullml <- logreg_xerrors1(
+#'   y = dat$y,
+#'   xtilde = reps,
+#'   c = dat$c,
+#'   approx_integral = FALSE,
+#'   integrate_tol = 1e-4,
+#'   control = list(trace = 1)
+#' )
+#' fit.fullml$theta.hat
+#' }
 #'
 #'
 #' @export
@@ -223,32 +241,32 @@ logreg_xerrors1 <- function(y,
                            beta_x,
                            cterm,
                            sigsq_m) {
-      
+
       # E(X|Xtilde,C) and V(X|Xtilde,C)
       Mu_xxtilde.c <- matrix(mu_x.c, nrow = k + 1)
       Sigma_xxtilde.c_11 <- sigsq_x.c
       Sigma_xxtilde.c_12 <- matrix(sigsq_x.c, ncol = k)
       Sigma_xxtilde.c_21 <- t(Sigma_xxtilde.c_12)
       Sigma_xxtilde.c_22 <- sigsq_x.c + sigsq_m * diag(k)
-      
+
       mu_x.xtildec <- Mu_xxtilde.c[1] + Sigma_xxtilde.c_12 %*%
         solve(Sigma_xxtilde.c_22) %*% (xtilde - Mu_xxtilde.c[-1])
       sigsq_x.xtildec <- Sigma_xxtilde.c_11 - Sigma_xxtilde.c_12 %*%
         solve(Sigma_xxtilde.c_22) %*% Sigma_xxtilde.c_21
-      
+
       # Approximation of \int_X f(Y|X,C) f(X|Xtilde,C) dX
       t <- (q + beta_x * mu_x.xtildec + cterm) /
         sqrt(1 + sigsq_x.xtildec * beta_x^2 / 1.7^2)
       p <- exp(t) / (1 + exp(t))
       part1 <- dbinom(x = y, size = 1, prob = p, log = TRUE)
-      
+
       # log[f(Xtilde|C)]
       part2 <- dmvnorm(x = xtilde, log = TRUE,
                        mean = Mu_xxtilde.c[-1],
                        sigma = Sigma_xxtilde.c_22)
-      
+
       return(part1 + part2)
-      
+
     }
   }
 
@@ -264,33 +282,33 @@ logreg_xerrors1 <- function(y,
                         beta_x,
                         cterm,
                         sigsq_m) {
-      
+
       x <- matrix(x, nrow = 1)
       dens <- apply(x, 2, function(z) {
-        
+
         # Transformation
         s <- z / (1 - z^2)
-        
+
         # P(Y|X,C)
         p_y.xc <- (1 + exp(-q - beta_x * s - cterm))^(-1)
-        
+
         # f(Y,X,Xtilde|C) = f(Y|X,C) f(Xtilde|X) f(X|C)
-        dbinom(y, 
-               size = 1, 
+        dbinom(y,
+               size = 1,
                prob = p_y.xc) *
-          prod(dnorm(xtilde, 
-                     mean = s, 
+          prod(dnorm(xtilde,
+                     mean = s,
                      sd = sqrt(sigsq_m))) *
-          dnorm(s, 
-                mean = mu_x.c, 
+          dnorm(s,
+                mean = mu_x.c,
                 sd = sqrt(sigsq_x.c))
-        
+
       })
-      
+
       # Back-transformation
       out <- matrix(dens * (1 + x^2) / (1 - x^2)^2, ncol = ncol(x))
       return(out)
-      
+
     }
   }
 

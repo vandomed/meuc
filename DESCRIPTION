@@ -2,11 +2,11 @@ Package: meuc
 Type: Package
 Title: Measurement Error and Unmeasured Confounding
 Version: 1.1.1
-Date: 2018-07-18
+Date: 2018-07-23
 Author: Dane R. Van Domelen
 Maintainer: Dane R. Van Domelen <vandomed@gmail.com>
-Description: Functions for implementing corrective methods for covariate measurement error/missing data/unmeasured confounding, when validation data are available. Methods include regression calibration, propensity score calibration, and maximum likelihood based on either two or three specified regression models.
+Description: Functions for implementing corrective methods for measurement error/missing data/unmeasured confounding. Methods include maximum likelihood, regression calibration, and propensity score calibration.
 License: GPL-3
 LazyData: true
 RoxygenNote: 6.0.1
-Imports: cubature, dplyr, ggplot2, Matrix, mvtnorm, numDeriv, pracma, stats
+Imports: cubature, dplyr, dvmisc, ggplot2, Matrix, mvtnorm, numDeriv, pracma, stats

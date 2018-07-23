@@ -13,8 +13,8 @@ logreg_xerrors1(y, xtilde, c = NULL, prev = NULL, samp_y1y0 = NULL,
 
 \item{xtilde}{List of numeric vectors with Xtilde values.}
 
-\item{c}{Numeric matrix with \strong{C} values (if any), with
-one row for each pool. Can be a vector if there is only 1 covariate.}
+\item{c}{Numeric matrix with \strong{C} values (if any), with one row for
+each subject. Can be a vector if there is only 1 covariate.}
 
 \item{prev}{Numeric value specifying disease prevalence, allowing for valid
 estimation of the intercept with case-control sampling. Can specify
@@ -56,13 +56,13 @@ log-likelihood function.
 \description{
 Assumes exposure measurements are subject to additive normal measurement
 errors, and exposure given covariates is a normal-errors linear regression.
-Some replicates are required for identifiability. Parameters are estimated 
+Some replicates are required for identifiability. Parameters are estimated
 using maximum likelihood.
 }
 \details{
 Disease model is:
 
-logit[P(Y = 1|X, \strong{C})] = beta_0 + beta_x X + \strong{beta_c}^T 
+logit[P(Y = 1|X, \strong{C})] = beta_0 + beta_x X + \strong{beta_c}^T
 \strong{C}
 
 Measurement error model is:
@@ -74,26 +74,44 @@ Exposure model is:
 X|\strong{C} ~ N(alpha_0 + \strong{alpha_c}^T \strong{C}, sigsq_x.c)
 }
 \examples{
-# Load dataset - dat1 has (Y, X, C) values and dat1_xtilde is list with 1 or 
-# 2 Xtilde measurements for each subject. True log-OR (beta_x) is 0.2.
-data(dat1)
-data(dat1_xtilde)
+# Load data frame with (Y, X, Xtilde, C) values for 500 subjects and list of
+# Xtilde values where 25 subjects have replicates. Xtilde values are affected
+# by measurement error. True parameter values are beta_0 = -0.5 beta_x = 0.2,
+# beta_c = 0.1, sigsq_m = 0.5.
+data(dat_logreg_xerrors1)
+dat <- dat_logreg_xerrors1$dat
+reps <- dat_logreg_xerrors1$reps
 
-# Unobservable truth - use true X's
-fit1 <- logreg_xerrors1(y = dat1$y, xtilde = dat1$x, c = dat1$c, 
-                        merror = FALSE)
-fit1$theta.hat
+# Logistic regression of Y vs. (X, C) (unobservable truth).
+fit.unobservable <- glm(y ~ x + c, data = dat, family = "binomial")
+fit.unobservable$coef
 
-# Naive - use Xtilde's but ignore measurement error. Note that when merror is 
-# set to FALSE, first Xtilde value for each subject is used.
-fit2 <- logreg_xerrors1(y = dat1$y, xtilde = dat1_xtilde, c = dat1$c,
-                        merror = FALSE)
-fit2$theta.hat
+# Logistic regression of Y vs. (Xtilde, C) ignoring measurement error.
+fit.naive <- glm(y ~ xtilde + c, data = dat, family = "binomial")
+fit.naive$coef
 
-# Corrected - use probit approximation to avoid numerical integration.
-fit3 <- logreg_xerrors1(y = dat1$y, xtilde = dat1_xtilde, c = dat1$c,
-                        merror = TRUE)
-fit3$theta.hat
+# Logistic regression of Y vs. (Xtilde, C), accounting for measurement error.
+# Avoiding numerical integration by using the probit approximation.
+fit.approxml <- logreg_xerrors1(
+  y = dat$y,
+  xtilde = reps,
+  c = dat$c,
+  approx_integral = TRUE,
+)
+fit.approxml$theta.hat
+
+# Repeat, but perform numerical integration. Takes a few minutes to run.
+\dontrun{
+fit.fullml <- logreg_xerrors1(
+  y = dat$y,
+  xtilde = reps,
+  c = dat$c,
+  approx_integral = FALSE,
+  integrate_tol = 1e-4,
+  control = list(trace = 1)
+)
+fit.fullml$theta.hat
+}
 
 
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/logreg_xerrors3.R
 \name{logreg_xerrors3}
 \alias{logreg_xerrors3}
-\title{Logistic Regression with Lognormal Exposure Subject to Multiplicative 
+\title{Logistic Regression with Lognormal Exposure Subject to Multiplicative
 Lognormal Errors}
 \usage{
 logreg_xerrors3(y, xtilde, c = NULL, prev = NULL, samp_y1y0 = NULL,
@@ -14,8 +14,8 @@ logreg_xerrors3(y, xtilde, c = NULL, prev = NULL, samp_y1y0 = NULL,
 
 \item{xtilde}{List of numeric vectors with Xtilde values.}
 
-\item{c}{Numeric matrix with \strong{C} values (if any), with
-one row for each pool. Can be a vector if there is only 1 covariate.}
+\item{c}{Numeric matrix with \strong{C} values (if any), with one row for
+each subject. Can be a vector if there is only 1 covariate.}
 
 \item{prev}{Numeric value specifying disease prevalence, allowing for valid
 estimation of the intercept with case-control sampling. Can specify
@@ -41,15 +41,15 @@ matrix for parameter estimates.}
 \item{...}{Additional arguments to pass to \code{\link[stats]{nlminb}}.}
 }
 \description{
-Assumes exposure measurements are subject to multiplicative mean-1 lognormal 
-measurement errors, and exposure given covariates is a log-transformed linear 
-regression. Some replicates are required for identifiability. Parameters are 
+Assumes exposure measurements are subject to multiplicative mean-1 lognormal
+measurement errors, and exposure given covariates is a log-transformed linear
+regression. Some replicates are required for identifiability. Parameters are
 estimated using maximum likelihood.
 }
 \details{
 Disease model is:
 
-logit[P(Y = 1|X, \strong{C})] = beta_0 + beta_x X + \strong{beta_c}^T 
+logit[P(Y = 1|X, \strong{C})] = beta_0 + beta_x X + \strong{beta_c}^T
 \strong{C}
 
 Measurement error model is:
@@ -61,27 +61,34 @@ Exposure model is:
 X|\strong{C} ~ Lognormal(alpha_0 + \strong{alpha_c}^T \strong{C}, sigsq_x.c)
 }
 \examples{
-# Load dataset - dat3 has (Y, X, C) values and dat3_xtilde is list with 1 or 
-# 2 Xtilde measurements for each subject. True log-OR (beta_x) is 0.2.
-data(dat3)
-data(dat3_xtilde)
+# Load data frame with (Y, X, Xtilde, C) values for 500 subjects and list of
+# Xtilde values where 25 subjects have replicates. Xtilde values are affected
+# by measurement error. True parameter values are beta_0 = -0.5 beta_x = 0.2,
+# beta_c = 0.1, sigsq_m = 0.5.
+data(dat_logreg_xerrors3)
+dat <- dat_logreg_xerrors3$dat
+reps <- dat_logreg_xerrors3$reps
 
-# Unobservable truth - use true X's
-fit1 <- logreg_xerrors3(y = dat3$y, xtilde = dat3$x, c = dat3$c, 
-                        merror = FALSE)
-fit1$theta.hat
+# Logistic regression of Y vs. (X, C) (unobservable truth).
+fit.unobservable <- glm(y ~ x + c, data = dat, family = "binomial")
+fit.unobservable$coef
 
-# Naive - use Xtilde's but ignore measurement error. Note that when merror is 
-# set to FALSE, first Xtilde value for each subject is used.
-fit2 <- logreg_xerrors3(y = dat3$y, xtilde = dat3_xtilde, c = dat3$c,
-                        merror = FALSE)
-fit2$theta.hat
+# Logistic regression of Y vs. (Xtilde, C) ignoring measurement error.
+fit.naive <- glm(y ~ xtilde + c, data = dat, family = "binomial")
+fit.naive$theta.hat
 
-# Corrected - takes a few minutes due to numerical integration.
+# Logistic regression of Y vs. (Xtilde, C), accounting for measurement error.
+# Takes a few minutes due to numerical integration.
 \dontrun{
-fit3 <- logreg_xerrors3(y = dat3$y, xtilde = dat3_xtilde, c = dat3$c,
-                        merror = TRUE, integrate_tol = 1e-4)
-fit3$theta.hat
+fit.corrected <- logreg_xerrors3(
+  y = dat$y,
+  xtilde = reps,
+  c = dat$c,
+  merror = TRUE,
+  integrate_tol = 1e-4,
+  control = list(trace = 1)
+)
+fit.corrected$theta.hat
 }
 
 

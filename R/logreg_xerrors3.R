@@ -1,53 +1,79 @@
-#' Logistic Regression with Lognormal Exposure Subject to Multiplicative 
+#' Logistic Regression with Lognormal Exposure Subject to Multiplicative
 #' Lognormal Errors
 #'
-#' Assumes exposure measurements are subject to multiplicative mean-1 lognormal 
-#' measurement errors, and exposure given covariates is a log-transformed linear 
-#' regression. Some replicates are required for identifiability. Parameters are 
+#' Assumes exposure measurements are subject to multiplicative mean-1 lognormal
+#' measurement errors, and exposure given covariates is a log-transformed linear
+#' regression. Some replicates are required for identifiability. Parameters are
 #' estimated using maximum likelihood.
-#' 
+#'
 #' Disease model is:
-#' 
-#' logit[P(Y = 1|X, \strong{C})] = beta_0 + beta_x X + \strong{beta_c}^T 
+#'
+#' logit[P(Y = 1|X, \strong{C})] = beta_0 + beta_x X + \strong{beta_c}^T
 #' \strong{C}
-#' 
+#'
 #' Measurement error model is:
-#' 
+#'
 #' Xtilde|X ~ LN(-1/2 sigsq_m, sigsq_m)
-#' 
+#'
 #' Exposure model is:
-#' 
+#'
 #' X|\strong{C} ~ Lognormal(alpha_0 + \strong{alpha_c}^T \strong{C}, sigsq_x.c)
 #'
 #'
-#' @inheritParams logreg_xerrors1
-#' 
-#' 
-#' @examples
-#' # Load dataset - dat3 has (Y, X, C) values and dat3_xtilde is list with 1 or 
-#' # 2 Xtilde measurements for each subject. True log-OR (beta_x) is 0.2.
-#' data(dat3)
-#' data(dat3_xtilde)
-#' 
-#' # Unobservable truth - use true X's
-#' fit1 <- logreg_xerrors3(y = dat3$y, xtilde = dat3$x, c = dat3$c, 
-#'                         merror = FALSE)
-#' fit1$theta.hat
-#' 
-#' # Naive - use Xtilde's but ignore measurement error. Note that when merror is 
-#' # set to FALSE, first Xtilde value for each subject is used.
-#' fit2 <- logreg_xerrors3(y = dat3$y, xtilde = dat3_xtilde, c = dat3$c,
-#'                         merror = FALSE)
-#' fit2$theta.hat
+#' @param y Numeric vector of Y values.
+#' @param xtilde List of numeric vectors with Xtilde values.
+#' @param c Numeric matrix with \strong{C} values (if any), with one row for
+#' each subject. Can be a vector if there is only 1 covariate.
+#' @param prev Numeric value specifying disease prevalence, allowing for valid
+#' estimation of the intercept with case-control sampling. Can specify
+#' \code{samp_y1y0} instead if sampling rates are known.
+#' @param samp_y1y0 Numeric vector of length 2 specifying sampling probabilities
+#' for cases and controls, allowing for valid estimation of the intercept with
+#' case-control sampling. Can specify \code{prev} instead if it's easier.
+#' @param merror Logical value for whether there is measurement error.
+#' @param integrate_tol Numeric value specifying \code{tol} input to
+#' \code{\link[cubature]{hcubature}} for numerical integration.
+#' @param integrate_tol_hessian Same as \code{integrate_tol}, but for use when
+#' estimating the Hessian matrix only. Sometimes using a smaller value than for
+#' likelihood maximization helps prevent cases where the inverse Hessian is not
+#' positive definite.
+#' @param estimate_var Logical value for whether to return variance-covariance
+#' matrix for parameter estimates.
+#' @param ... Additional arguments to pass to \code{\link[stats]{nlminb}}.
 #'
-#' # Corrected - takes a few minutes due to numerical integration.
+#'
+#' @examples
+#' # Load data frame with (Y, X, Xtilde, C) values for 500 subjects and list of
+#' # Xtilde values where 25 subjects have replicates. Xtilde values are affected
+#' # by measurement error. True parameter values are beta_0 = -0.5 beta_x = 0.2,
+#' # beta_c = 0.1, sigsq_m = 0.5.
+#' data(dat_logreg_xerrors3)
+#' dat <- dat_logreg_xerrors3$dat
+#' reps <- dat_logreg_xerrors3$reps
+#'
+#' # Logistic regression of Y vs. (X, C) (unobservable truth).
+#' fit.unobservable <- glm(y ~ x + c, data = dat, family = "binomial")
+#' fit.unobservable$coef
+#'
+#' # Logistic regression of Y vs. (Xtilde, C) ignoring measurement error.
+#' fit.naive <- glm(y ~ xtilde + c, data = dat, family = "binomial")
+#' fit.naive$theta.hat
+#'
+#' # Logistic regression of Y vs. (Xtilde, C), accounting for measurement error.
+#' # Takes a few minutes due to numerical integration.
 #' \dontrun{
-#' fit3 <- logreg_xerrors3(y = dat3$y, xtilde = dat3_xtilde, c = dat3$c,
-#'                         merror = TRUE, integrate_tol = 1e-4)
-#' fit3$theta.hat
+#' fit.corrected <- logreg_xerrors3(
+#'   y = dat$y,
+#'   xtilde = reps,
+#'   c = dat$c,
+#'   merror = TRUE,
+#'   integrate_tol = 1e-4,
+#'   control = list(trace = 1)
+#' )
+#' fit.corrected$theta.hat
 #' }
-#' 
-#' 
+#'
+#'
 #' @export
 logreg_xerrors3 <- function(y,
                             xtilde,
@@ -59,7 +85,7 @@ logreg_xerrors3 <- function(y,
                             integrate_tol_hessian = integrate_tol,
                             estimate_var = FALSE,
                             ...) {
-  
+
   # Get name of xtilde input
   x.varname <- deparse(substitute(xtilde))
   if (length(grep("$", x.varname, fixed = TRUE)) > 0) {
@@ -67,7 +93,7 @@ logreg_xerrors3 <- function(y,
                         start = which(unlist(strsplit(x.varname, "")) == "$") + 1,
                         stop = nchar(x.varname))
   }
-  
+
   # Get information about covariates C
   if (is.null(c)) {
     c.varnames <- NULL
@@ -94,18 +120,18 @@ logreg_xerrors3 <- function(y,
       }
     }
   }
-  
+
   # Get number of betas and alphas
   n.betas <- 2 + n.cvars
   n.alphas <- 1 + n.cvars
-  
+
   # Sample sizes
   n <- length(y)
   locs.cases <- which(y == 1)
   locs.controls <- which(y == 0)
   n1 <- length(locs.cases)
   n0 <- length(locs.controls)
-  
+
   # Calculate offsets if prev or samp_y1y0 specified
   if (! is.null(prev)) {
     q <- rep(log(n1 / n0 * prev / (1 - prev)), n)
@@ -114,35 +140,35 @@ logreg_xerrors3 <- function(y,
   } else {
     q <- rep(0, n)
   }
-  
+
   # If no measurement error and xtilde is a list, just use first measurements
   if (! merror & class(xtilde) == "list") {
     xtilde <- sapply(xtilde, function(x) x[1])
   }
-  
+
   # Separate observations into precise Y, single imprecise Y, and replicate
   # imprecise Y's
   if (! merror) {
     some.p <- TRUE
-    
+
     y.p <- y
     x.p <- xtilde
     onec.p <- cbind(rep(1, n), c)
     onexc.p <- cbind(rep(1, n), xtilde, c)
     q.p <- q
-    
+
     some.s <- FALSE
     some.r <- FALSE
-    
+
   } else {
-    
+
     some.p <- FALSE
     if (class(xtilde) == "list") {
       k <- sapply(xtilde, length)
     } else {
       k <- rep(1, n)
     }
-    
+
     which.s <- which(k == 1)
     n.s <- length(which.s)
     some.s <- n.s > 0
@@ -152,7 +178,7 @@ logreg_xerrors3 <- function(y,
       onec.s <- cbind(rep(1, n.s), c[which.s, , drop = FALSE])
       q.s <- q[which.s]
     }
-    
+
     which.r <- which(k > 1)
     n.r <- length(which.r)
     some.r <- n.r > 0
@@ -163,47 +189,47 @@ logreg_xerrors3 <- function(y,
       onec.r <- cbind(rep(1, n.r), c[which.r, , drop = FALSE])
       q.r <- q[which.r]
     }
-    
+
   }
-  
+
   # Get indices for parameters being estimated and create labels
   loc.betas <- 1: n.betas
   beta.labels <- paste("beta", c("0", x.varname, c.varnames), sep = "_")
-  
+
   loc.alphas <- (n.betas + 1): (n.betas + n.alphas)
   alpha.labels <- paste("alpha", c("0", c.varnames), sep = "_")
-  
+
   loc.sigsq_x.c <- n.betas + n.alphas + 1
   loc.sigsq_m <- n.betas + n.alphas + 2
-  
+
   if (merror) {
     theta.labels <- c(beta.labels, alpha.labels, "sigsq_x.c", "sigsq_m")
   } else{
     theta.labels <- c(beta.labels, alpha.labels, "sigsq_x.c")
   }
-  
-  
+
+
   # Likelihood function for full ML
   if (some.s | some.r) {
     lf <- function(y,
                    xtilde,
                    x,
-                   meanlog, 
-                   sdlog, 
+                   meanlog,
+                   sdlog,
                    q,
                    beta_x,
                    cterm,
                    sigsq_m) {
-      
+
       x <- matrix(x, nrow = 1)
       dens <- apply(x, 2, function(z) {
-        
+
         # Transformation
         s <- z / (1 - z)
-        
+
         # P(Y|X,C)
         p_y.xc <- (1 + exp(-q - beta_x * s - cterm))^(-1)
-        
+
         # f(Y,X,Xtilde|C) = f(Y|X,C) f(Xtilde|X) f(X|C)
         dbinom(y,
                size = 1,
@@ -214,39 +240,39 @@ logreg_xerrors3 <- function(y,
           dlnorm(s,
                  meanlog = meanlog,
                  sdlog = sdlog)
-        
+
       })
-      
+
       # Back-transformation
       out <- matrix(dens / (1 - x)^2, ncol = ncol(x))
       return(out)
-      
+
     }
   }
-  
+
   # Log-likelihood function
   llf <- function(f.theta, estimating.hessian = FALSE) {
-    
+
     # Extract parameters
     f.betas <- matrix(f.theta[loc.betas], ncol = 1)
     f.beta_0 <- f.betas[1]
     f.beta_x <- f.betas[2]
     f.beta_c <- matrix(f.betas[-c(1: 2)], ncol = 1)
-    
+
     f.alphas <- matrix(f.theta[loc.alphas], ncol = 1)
     f.alpha_0 <- f.alphas[1]
     f.alpha_c <- matrix(f.alphas[-1], ncol = 1)
-    
+
     f.sigsq_x.c <- f.theta[loc.sigsq_x.c]
-    
+
     if (merror) {
       f.sigsq_m <- f.theta[loc.sigsq_x.c + 1]
     } else {
       f.sigsq_m <- 0
     }
-    
+
     if (some.p) {
-      
+
       # Log-likelihood for precise X
       ll.p <- sum(
         dbinom(y.p, log = TRUE,
@@ -256,27 +282,27 @@ logreg_xerrors3 <- function(y,
                  meanlog = onec.p %*% f.alphas,
                  sdlog = sqrt(f.sigsq_x.c))
       )
-      
+
     } else {
       ll.p <- 0
     }
-    
+
     # Set skip.rest flag to FALSE
     skip.rest <- FALSE
-    
+
     if (some.s) {
-      
+
       # Log-likelihood for single imprecise Xtilde
-      
+
       # Get integration tolerance
       int.tol <- ifelse(estimating.hessian, integrate_tol_hessian, integrate_tol)
-      
+
       meanlogs <- onec.s %*% f.alphas
       cterms <- onec.s %*% f.betas[-2]
-      
+
       int.vals <- c()
       for (ii in 1: n.s) {
-        
+
         # Perform integration
         int.ii <- cubature::hcubature(f = lf,
                                       tol = int.tol,
@@ -298,25 +324,25 @@ logreg_xerrors3 <- function(y,
           skip.rest <- TRUE
           break
         }
-        
+
       }
-      
+
       ll.s <- sum(log(int.vals))
-      
+
     } else {
       ll.s <- 0
     }
-    
+
     if (some.r & ! skip.rest) {
-      
+
       # Log-likelihood for replicate Y
-      
+
       meanlogs <- onec.r %*% f.alphas
       cterms <- onec.r %*% f.betas[-2]
-      
+
       int.vals <- c()
       for (ii in 1: n.r) {
-        
+
         # Perform integration
         int.ii <- cubature::hcubature(f = lf,
                                       tol = integrate_tol,
@@ -325,8 +351,8 @@ logreg_xerrors3 <- function(y,
                                       vectorInterface = TRUE,
                                       y = y.r[ii],
                                       xtilde = unlist(xtilde.r[ii]),
-                                      meanlog = meanlogs[ii], 
-                                      sdlog = sqrt(f.sigsq_x.c), 
+                                      meanlog = meanlogs[ii],
+                                      sdlog = sqrt(f.sigsq_x.c),
                                       q = q.r[ii],
                                       beta_x = f.beta_x,
                                       cterm = cterms[ii],
@@ -338,21 +364,21 @@ logreg_xerrors3 <- function(y,
           skip.rest <- TRUE
           break
         }
-        
+
       }
-      
+
       ll.r <- sum(log(int.vals))
-      
+
     } else {
       ll.r <- 0
     }
-    
+
     # Return negative log-likelihood
     ll <- ll.p + ll.s + ll.r
     return(-ll)
-    
+
   }
-  
+
   # Create list of extra arguments, and assign default starting values and
   # lower values if not specified by user
   extra.args <- list(...)
@@ -379,15 +405,15 @@ logreg_xerrors3 <- function(y,
   if (is.null(extra.args$control$iter.max)) {
     extra.args$control$iter.max <- 750
   }
-  
+
   # Obtain ML estimates
   ml.max <- do.call(nlminb, c(list(objective = llf), extra.args))
-  
+
   # Create list to return
   theta.hat <- ml.max$par
   names(theta.hat) <- theta.labels
   ret.list <- list(theta.hat = theta.hat)
-  
+
   # If requested, add variance-covariance matrix to ret.list
   if (estimate_var) {
     hessian.mat <- pracma::hessian(f = llf, estimating.hessian = TRUE,
@@ -402,12 +428,12 @@ logreg_xerrors3 <- function(y,
       ret.list$theta.var <- theta.variance
     }
   }
-  
+
   # Add nlminb object and AIC to ret.list
   ret.list$nlminb.object <- ml.max
   ret.list$aic <- 2 * (length(theta.hat) + ml.max$objective)
-  
+
   # Return ret.list
   return(ret.list)
-  
+
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/logreg_xerrors2.R
 \name{logreg_xerrors2}
 \alias{logreg_xerrors2}
-\title{Logistic Regression with Gamma Exposure Subject to Multiplicative Lognormal 
+\title{Logistic Regression with Gamma Exposure Subject to Multiplicative Lognormal
 Errors}
 \usage{
 logreg_xerrors2(y, xtilde, c = NULL, prev = NULL, samp_y1y0 = NULL,
@@ -12,11 +12,11 @@ logreg_xerrors2(y, xtilde, c = NULL, prev = NULL, samp_y1y0 = NULL,
 \arguments{
 \item{y}{Numeric vector of Y values.}
 
-\item{xtilde}{Numeric vector (or list of numeric vectors, if there are 
+\item{xtilde}{Numeric vector (or list of numeric vectors, if there are
 replicates) of Xtilde values.}
 
-\item{c}{Numeric matrix with \strong{C} values (if any), with
-one row for each pool. Can be a vector if there is only 1 covariate.}
+\item{c}{Numeric matrix with \strong{C} values (if any), with one row for
+each subject. Can be a vector if there is only 1 covariate.}
 
 \item{prev}{Numeric value specifying disease prevalence, allowing for valid
 estimation of the intercept with case-control sampling. Can specify
@@ -40,16 +40,20 @@ positive definite.}
 matrix for parameter estimates.}
 
 \item{...}{Additional arguments to pass to \code{\link[stats]{nlminb}}.}
+
+\item{approx_integral}{Logical value for whether to use the probit
+approximation for the logistic-normal integral, to avoid numerically
+integrating X's out of the likelihood function.}
 }
 \description{
-Assumes exposure measurements are subject to multiplicative mean-1 lognormal 
-measurement errors, and exposure given covariates is a constant-scale Gamma 
+Assumes exposure measurements are subject to multiplicative mean-1 lognormal
+measurement errors, and exposure given covariates is a constant-scale Gamma
 regression. Parameters are estimated using maximum likelihood.
 }
 \details{
 Disease model is:
 
-logit[P(Y = 1|X, \strong{C})] = beta_0 + beta_x X + \strong{beta_c}^T 
+logit[P(Y = 1|X, \strong{C})] = beta_0 + beta_x X + \strong{beta_c}^T
 \strong{C}
 
 Measurement error model is:
@@ -60,31 +64,38 @@ Exposure model is:
 
 X|\strong{C} ~ Gamma(exp(alpha_0 + \strong{alpha_c}^T \strong{C}), b)
 
-using the shape-scale (as opposed to shape-rate) parameterization described 
+using the shape-scale (as opposed to shape-rate) parameterization described
 in \code{\link[stats]{GammaDist}}.
 }
 \examples{
-# Load dataset - dat2 has (Y, X, C) values and dat2_xtilde is list with 1 or 
-# 2 Xtilde measurements for each subject. True log-OR (beta_x) is 0.2.
-data(dat2)
-data(dat2_xtilde)
+# Load data frame with (Y, X, Xtilde, C) values for 500 subjects and list of
+# Xtilde values where 25 subjects have replicates. Xtilde values are affected
+# by measurement error. True parameter values are beta_0 = -0.5 beta_x = 0.2,
+# beta_c = 0.1, sigsq_m = 0.5.
+data(dat_logreg_xerrors2)
+dat <- dat_logreg_xerrors2$dat
+reps <- dat_logreg_xerrors2$reps
 
-# Unobservable truth - use true X's
-fit1 <- logreg_xerrors2(y = dat2$y, xtilde = dat2$x, c = dat2$c, 
-                        merror = FALSE)
-fit1$theta.hat
+# Logistic regression of Y vs. (X, C) (unobservable truth).
+fit.unobservable <- glm(y ~ x + c, data = dat, family = "binomial")
+fit.unobservable$coef
 
-# Naive - use Xtilde's but ignore measurement error. Note that when merror is 
-# set to FALSE, first Xtilde value for each subject is used.
-fit2 <- logreg_xerrors2(y = dat2$y, xtilde = dat2_xtilde, c = dat2$c,
-                        merror = FALSE)
-fit2$theta.hat
+# Logistic regression of Y vs. (Xtilde, C) ignoring measurement error.
+fit.naive <- glm(y ~ xtilde + c, data = dat, family = "binomial")
+fit.naive$theta.hat
 
-# Corrected - takes a few minutes due to numerical integration.
+# Logistic regression of Y vs. (Xtilde, C), accounting for measurement error.
+# Takes a few minutes due to numerical integration.
 \dontrun{
-fit3 <- logreg_xerrors2(y = dat2$y, xtilde = dat2_xtilde, c = dat2$c,
-                        merror = TRUE, integrate_tol = 1e-4)
-fit3$theta.hat
+fit.corrected <- logreg_xerrors2(
+  y = dat$y,
+  xtilde = reps,
+  c = dat$c,
+  merror = TRUE,
+  integrate_tol = 1e-4,
+  control = list(trace = 1)
+)
+fit.corrected$theta.hat
 }
 
 

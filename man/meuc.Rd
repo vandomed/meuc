@@ -6,17 +6,16 @@
 \alias{meuc-package}
 \title{Fit Poolwise Regression Models}
 \description{
-Functions for implementing corrective methods for covariate measurement
-error/missing data/unmeasured confounding. Methods include regression
-calibration, propensity score calibration, and maximum likelihood based on
-either two or three specified regression models.
+Functions for implementing corrective methods for measurement error/missing
+data/unmeasured confounding. Methods include maximum likelihood, regression
+calibration, and propensity score calibration.
 }
 \details{
 \tabular{ll}{
 Package: \tab meuc \cr
 Type: \tab Package \cr
 Version: \tab 1.1.1 \cr
-Date: \tab 2018-07-18 \cr
+Date: \tab 2018-07-23 \cr
 License: \tab GPL-3 \cr
 }
 }
