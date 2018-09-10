@@ -6,7 +6,7 @@
 Potentially Subject to Additive Normal Measurement Error (Non-constant Odds
 Ratio Version)}
 \usage{
-ndfa_nonconstant(y, xtilde, c = NULL, merror = TRUE, ...)
+ndfa_nonconstant(y, xtilde, c = NULL, merror = FALSE, ...)
 }
 \arguments{
 \item{y}{Numeric vector of Y values.}

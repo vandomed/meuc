@@ -6,7 +6,7 @@
 Potentially Subject to Additive Normal Measurement Error (Constant Odds Ratio
 Version)}
 \usage{
-ndfa_constant(y, xtilde, c = NULL, merror = TRUE, ...)
+ndfa_constant(y, xtilde, c = NULL, merror = FALSE, ...)
 }
 \arguments{
 \item{y}{Numeric vector of Y values.}

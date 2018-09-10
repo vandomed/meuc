@@ -30,10 +30,17 @@
 #'
 #'
 #' @export
+# data(dat_ndfa)
+# dat <- dat_ndfa$dat
+# y <- dat$y
+# xtilde <- dat_ndfa$reps
+# c <- dat$c
+# merror <- TRUE
 ndfa_constant <- function(y,
                           xtilde,
                           c = NULL,
-                          merror = TRUE, ...) {
+                          merror = FALSE,
+                          ...) {
 
   # Check that inputs are valid
   if (! is.logical(merror)) {
@@ -146,25 +153,19 @@ ndfa_constant <- function(y,
 
     if (some.r) {
 
-      ll.vals <- c()
-      for (ii in 1: length(xtilde.r)) {
-
-        # Values for ith subject
-        k_i <- k.r[ii]
-        oneyc_i <- oneyc.r[ii, ]
-        xtilde_i <- xtilde.r[[ii]]
-
-        # E(Xtilde|Y,C) and V(Xtilde|Y,C)
-        Mu_xtilde.yc <- rep(sum(oneyc_i * f.gammas), k_i)
-        Sigma_xtilde.yc <- f.sigsq + diag(x = f.sigsq_m, ncol = k_i, nrow = k_i)
-
-        # Log-likelihood
-        ll.vals[ii] <- dmvnorm(x = xtilde_i, log = TRUE,
-                               mean = Mu_xtilde.yc,
-                               sigma = Sigma_xtilde.yc)
-
-      }
-      ll.r <- sum(ll.vals)
+      mu_xtilde.yc <- oneyc.r %*% f.gammas
+      ll.r <- sum(
+        mapply(
+          FUN = function(k, mu_xtilde.yc, xtilde) {
+            dmvnorm(x = xtilde, log = TRUE,
+                    mean = rep(mu_xtilde.yc, k),
+                    sigma = f.sigsq + diag(f.sigsq_m, k))
+          },
+          k = k.r,
+          mu_xtilde.yc = mu_xtilde.yc,
+          xtilde = xtilde.r
+        )
+      )
 
     } else {
       ll.r <- 0

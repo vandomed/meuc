@@ -45,7 +45,7 @@
 gdfa_constant <- function(y,
                           xtilde,
                           c = NULL,
-                          merror = TRUE,
+                          merror = FALSE,
                           integrate_tol = 1e-8,
                           integrate_tol_hessian = integrate_tol,
                           estimate_var = TRUE,
@@ -235,8 +235,8 @@ gdfa_constant <- function(y,
       # L = int_X f(Xtilde|X) f(X|Y,C) dX
 
       # Shape and scale parameters to feed integral
-      alphas <- exp(onec.r %*% f.gammas)
-      betas <- ifelse(y.r == 1, f.b1, f.b0)
+      shapes <- exp(onec.r %*% f.gammas)
+      scales <- ifelse(y.r == 1, f.b1, f.b0)
 
       # Get integration tolerance
       if (estimating.hessian) {
@@ -254,8 +254,8 @@ gdfa_constant <- function(y,
           vectorInterface = TRUE,
           lowerLimit = 0, upperLimit = 1,
           xtilde = xtilde.r[[ii]],
-          shape = alphas[ii],
-          scale = betas[ii],
+          shape = shapes[ii],
+          scale = scales[ii],
           sigsq_m = f.sigsq_m
         )
         int.vals[ii] <- int.ii$integral
@@ -281,8 +281,8 @@ gdfa_constant <- function(y,
       # L = int_X f(Xtilde|X) f(X|Y,C) dX
 
       # Shape and scale parameters to feed integral
-      alphas <- exp(onec.i %*% f.gammas)
-      betas <- ifelse(y.i == 1, f.b1, f.b0)
+      shapes <- exp(onec.i %*% f.gammas)
+      scales <- ifelse(y.i == 1, f.b1, f.b0)
 
       # Get integration tolerance
       if (estimating.hessian) {
@@ -299,8 +299,8 @@ gdfa_constant <- function(y,
           vectorInterface = TRUE,
           lowerLimit = 0, upperLimit = 1,
           xtilde = xtilde.i[ii],
-          shape = alphas[ii],
-          scale = betas[ii],
+          shape = shapes[ii],
+          scale = scales[ii],
           sigsq_m = f.sigsq_m
         )
         int.vals[ii] <- int.ii$integral

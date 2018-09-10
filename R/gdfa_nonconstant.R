@@ -45,7 +45,7 @@
 gdfa_nonconstant <- function(y,
                              xtilde,
                              c = NULL,
-                             merror = TRUE,
+                             merror = FALSE,
                              integrate_tol = 1e-8,
                              integrate_tol_hessian = integrate_tol,
                              estimate_var = TRUE,
@@ -53,9 +53,6 @@ gdfa_nonconstant <- function(y,
                              ...) {
 
   # Check that inputs are valid
-  if (! is.null(constant_or) && ! is.logical(constant_or)) {
-    stop("The input 'contant_or' should be set to TRUE, FALSE, or NULL.")
-  }
   if (! is.logical(merror)) {
     stop("The input 'merror' should be TRUE or FALSE.")
   }
@@ -242,8 +239,8 @@ gdfa_nonconstant <- function(y,
       # L = int_X f(Xtilde|X) f(X|Y,C) dX
 
       # Shape and scale parameters to feed integral
-      alphas <- exp(oneyc.r %*% f.gammas)
-      betas <- ifelse(y.r == 1, f.b1, f.b0)
+      shapes <- exp(oneyc.r %*% f.gammas)
+      scales <- ifelse(y.r == 1, f.b1, f.b0)
 
       # Get integration tolerance
       if (estimating.hessian) {
@@ -261,8 +258,8 @@ gdfa_nonconstant <- function(y,
           vectorInterface = TRUE,
           lowerLimit = 0, upperLimit = 1,
           xtilde = xtilde.r[[ii]],
-          shape = alphas[ii],
-          scale = betas[ii],
+          shape = shapes[ii],
+          scale = scales[ii],
           sigsq_m = f.sigsq_m
         )
         int.vals[ii] <- int.ii$integral
@@ -288,8 +285,8 @@ gdfa_nonconstant <- function(y,
       # L = int_X f(Xtilde|X) f(X|Y,C) dX
 
       # Shape and scale parameters to feed integral
-      alphas <- exp(oneyc.i %*% f.gammas)
-      betas <- ifelse(y.i == 1, f.b1, f.b0)
+      shapes <- exp(oneyc.i %*% f.gammas)
+      scales <- ifelse(y.i == 1, f.b1, f.b0)
 
       # Get integration tolerance
       if (estimating.hessian) {
@@ -306,8 +303,8 @@ gdfa_nonconstant <- function(y,
           vectorInterface = TRUE,
           lowerLimit = 0, upperLimit = 1,
           xtilde = xtilde.i[ii],
-          shape = alphas[ii],
-          scale = betas[ii],
+          shape = shapes[ii],
+          scale = scales[ii],
           sigsq_m = f.sigsq_m
         )
         int.vals[ii] <- int.ii$integral

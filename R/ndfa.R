@@ -13,7 +13,7 @@
 #' each subject. Can be a vector if there is only 1 covariate.
 #' @param constant_or Logical value for whether to assume a constant odds ratio
 #' for X, which means that sigsq_1 = sigsq_0. If \code{NULL}, model is fit with
-#' and without this assumption, and likelihood ratio test is performed to test
+#' and without this assumption, and a likelihood ratio test is performed to test
 #' it.
 #' @param merror Logical value for whether there is measurement error.
 #' @param ... Additional arguments to pass to \code{\link[stats]{nlminb}}.
@@ -102,7 +102,7 @@ ndfa <- function(y,
                  xtilde,
                  c = NULL,
                  constant_or = TRUE,
-                 merror = TRUE,
+                 merror = FALSE,
                  ...) {
 
   # Check that inputs are valid

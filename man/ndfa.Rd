@@ -5,7 +5,7 @@
 \title{Normal Discriminant Function Approach for Estimating Odds Ratio with Exposure
 Potentially Subject to Additive Normal Measurement Error}
 \usage{
-ndfa(y, xtilde, c = NULL, constant_or = TRUE, merror = TRUE, ...)
+ndfa(y, xtilde, c = NULL, constant_or = TRUE, merror = FALSE, ...)
 }
 \arguments{
 \item{y}{Numeric vector of Y values.}
@@ -17,7 +17,7 @@ each subject. Can be a vector if there is only 1 covariate.}
 
 \item{constant_or}{Logical value for whether to assume a constant odds ratio
 for X, which means that sigsq_1 = sigsq_0. If \code{NULL}, model is fit with
-and without this assumption, and likelihood ratio test is performed to test
+and without this assumption, and a likelihood ratio test is performed to test
 it.}
 
 \item{merror}{Logical value for whether there is measurement error.}

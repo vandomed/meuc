@@ -33,7 +33,8 @@
 ndfa_nonconstant <- function(y,
                              xtilde,
                              c = NULL,
-                             merror = TRUE, ...) {
+                             merror = FALSE,
+                             ...) {
 
   # Check that inputs are valid
   if (! is.logical(merror)) {
@@ -150,29 +151,25 @@ ndfa_nonconstant <- function(y,
 
     if (some.r) {
 
+      mu_xtilde.yc <- oneyc.r %*% f.gammas
       f.sigsq_y <- ifelse(y.r == 1, f.sigsq_1, f.sigsq_0)
+      ll.r <- sum(
+        mapply(
+          FUN = function(k, mu_xtilde.yc, xtilde, f.sigsq_y) {
+            dmvnorm(x = xtilde, log = TRUE,
+                    mean = rep(mu_xtilde.yc, k),
+                    sigma = f.sigsq_y + diag(f.sigsq_m, k))
 
-      ll.vals <- c()
-      for (ii in 1: length(xtilde.r)) {
+          },
+          k = k.r,
+          mu_xtilde.yc = mu_xtilde.yc,
+          xtilde = xtilde.r,
+          f.sigsq_y = f.sigsq_y
+        )
+      )
 
-        # Values for ith subject
-        k_i <- k.r[ii]
-        oneyc_i <- oneyc.r[ii, ]
-        xtilde_i <- xtilde.r[[ii]]
-        f.sigsq_i <- f.sigsq_y[ii]
-
-        # E(Xtilde|Y,C) and V(Xtilde|Y,C)
-        Mu_xtilde.yc <- rep(sum(oneyc_i * f.gammas), k_i)
-        Sigma_xtilde.yc <- f.sigsq_i + diag(x = f.sigsq_m, ncol = k_i, nrow = k_i)
-
-        # Log-likelihood
-        ll.vals[ii] <- dmvnorm(x = xtilde_i, log = TRUE,
-                               mean = Mu_xtilde.yc,
-                               sigma = Sigma_xtilde.yc)
-
-      }
-      ll.r <- sum(ll.vals)
-
+    } else {
+      ll.r <- 0
     }
 
     if (some.s) {

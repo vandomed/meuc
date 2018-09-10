@@ -14,7 +14,7 @@
 #' each subject. Can be a vector if there is only 1 covariate.
 #' @param constant_or Logical value for whether to assume a constant odds ratio
 #' for X, which means that gamma_y = 0. If \code{NULL}, model is fit with and
-#' without this assumption, and likelihood ratio test is performed to test it.
+#' without this assumption, and a likelihood ratio test is performed to test it.
 #' @param merror Logical value for whether there is measurement error.
 #' @param integrate_tol Numeric value specifying the \code{tol} input to
 #' \code{\link{hcubature}}.
@@ -127,7 +127,7 @@ gdfa <- function(y,
                  xtilde,
                  c = NULL,
                  constant_or = TRUE,
-                 merror = TRUE,
+                 merror = FALSE,
                  integrate_tol = 1e-8,
                  integrate_tol_hessian = integrate_tol,
                  estimate_var = TRUE,

@@ -89,7 +89,7 @@ psc_cond_exp <- function(all_data = NULL,
                          ep_vars,
                          tdm_family = "gaussian",
                          surrogacy = TRUE,
-                         ep_data = "validation",
+                         ep_data = "separate",
                          boot_var = FALSE, boots = 100,
                          alpha = 0.05) {
 

@@ -5,7 +5,7 @@
 \title{Gamma Discriminant Function Approach for Estimating Odds Ratio with Exposure
 Potentially Subject to Multiplicative Lognormal Measurement Error}
 \usage{
-gdfa(y, xtilde, c = NULL, constant_or = TRUE, merror = TRUE,
+gdfa(y, xtilde, c = NULL, constant_or = TRUE, merror = FALSE,
   integrate_tol = 1e-08, integrate_tol_hessian = integrate_tol,
   estimate_var = TRUE, fix_posdef = TRUE, ...)
 }
@@ -20,7 +20,7 @@ each subject. Can be a vector if there is only 1 covariate.}
 
 \item{constant_or}{Logical value for whether to assume a constant odds ratio
 for X, which means that gamma_y = 0. If \code{NULL}, model is fit with and
-without this assumption, and likelihood ratio test is performed to test it.}
+without this assumption, and a likelihood ratio test is performed to test it.}
 
 \item{merror}{Logical value for whether there is measurement error.}
 

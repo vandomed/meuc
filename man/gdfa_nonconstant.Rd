@@ -6,7 +6,7 @@
 Potentially Subject to Multiplicative Lognormal Measurement Error
 (Non-constant Odds Ratio Version)}
 \usage{
-gdfa_nonconstant(y, xtilde, c = NULL, merror = TRUE,
+gdfa_nonconstant(y, xtilde, c = NULL, merror = FALSE,
   integrate_tol = 1e-08, integrate_tol_hessian = integrate_tol,
   estimate_var = TRUE, fix_posdef = TRUE, ...)
 }
