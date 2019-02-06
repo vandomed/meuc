@@ -3,7 +3,7 @@
 \docType{data}
 \name{dat_logreg_xerrors2}
 \alias{dat_logreg_xerrors2}
-\title{Dataset for Examples in logreg_xerorrs2}
+\title{Dataset for Examples in logreg_xerrors2}
 \source{
 Simulated data in R.
 }

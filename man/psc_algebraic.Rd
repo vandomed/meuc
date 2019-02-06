@@ -5,9 +5,9 @@
 \title{Propensity Score Calibration (Algebraic Method)}
 \usage{
 psc_algebraic(all_data = NULL, main = NULL, internal = NULL,
-  external = NULL, y_var, x_var, gs_vars, ep_vars, tdm_family = "gaussian",
-  ep_data = "validation", delta_var = TRUE, boot_var = FALSE,
-  boots = 100, alpha = 0.05)
+  external = NULL, y_var, x_var, gs_vars, ep_vars,
+  tdm_family = "gaussian", ep_data = "validation", delta_var = TRUE,
+  boot_var = FALSE, boots = 100, alpha = 0.05)
 }
 \arguments{
 \item{all_data}{Data frame with data for main study and validation study.}

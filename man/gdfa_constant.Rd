@@ -6,9 +6,9 @@
 Potentially Subject to Multiplicative Lognormal Measurement Error (Constant
 Odds Ratio Version)}
 \usage{
-gdfa_constant(y, xtilde, c = NULL, merror = FALSE, integrate_tol = 1e-08,
-  integrate_tol_hessian = integrate_tol, estimate_var = TRUE,
-  fix_posdef = TRUE, ...)
+gdfa_constant(y, xtilde, c = NULL, merror = FALSE,
+  integrate_tol = 1e-08, integrate_tol_hessian = integrate_tol,
+  estimate_var = TRUE, fix_posdef = TRUE, ...)
 }
 \arguments{
 \item{y}{Numeric vector of Y values.}

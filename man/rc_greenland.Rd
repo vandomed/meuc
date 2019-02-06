@@ -4,8 +4,9 @@
 \alias{rc_greenland}
 \title{Regression Calibration with Internal Validation Data and One Surrogate}
 \usage{
-rc_greenland(all_data = NULL, main = NULL, internal = NULL, y_var, z_var,
-  d_var, c_vars = NULL, b_vars = NULL, tdm_family = "gaussian")
+rc_greenland(all_data = NULL, main = NULL, internal = NULL, y_var,
+  z_var, d_var, c_vars = NULL, b_vars = NULL,
+  tdm_family = "gaussian")
 }
 \arguments{
 \item{all_data}{Data frame with data for main study and validation study.}

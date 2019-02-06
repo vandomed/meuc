@@ -5,11 +5,11 @@
 \title{Maximum Likelihood with Three Models: Linear Regression, Logistic
 Regression, and Linear Regression}
 \usage{
-ml_linear_logistic_linear(all_data = NULL, main = NULL, internal = NULL,
-  external = NULL, y_var, x_var, z_var, d_vars = NULL, c_vars = NULL,
-  b_vars = NULL, integrate_tol = 1e-08,
-  integrate_tol_hessian = integrate_tol, estimate_var = FALSE,
-  fix_posdef = FALSE, ...)
+ml_linear_logistic_linear(all_data = NULL, main = NULL,
+  internal = NULL, external = NULL, y_var, x_var, z_var,
+  d_vars = NULL, c_vars = NULL, b_vars = NULL,
+  integrate_tol = 1e-08, integrate_tol_hessian = integrate_tol,
+  estimate_var = FALSE, fix_posdef = FALSE, ...)
 }
 \arguments{
 \item{all_data}{Data frame with data for main study and validation study.}

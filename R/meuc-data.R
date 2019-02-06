@@ -10,7 +10,7 @@
 NULL
 #'
 #'
-#' Dataset for Examples in logreg_xerorrs2
+#' Dataset for Examples in logreg_xerrors2
 #'
 #' List of length 2 containing data frame with (Y, X, Xtilde, C) values for 500
 #' subjects and list of Xtilde values where 25 subjects have replicates. Xtilde
